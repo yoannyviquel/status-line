@@ -14,7 +14,7 @@ const destScript = path.join(claudeDir, 'gradient-statusline.sh');
 
 function fail(msg) { console.error('✗ ' + msg); process.exit(1); }
 
-if (!fs.existsSync(srcScript)) fail('script source introuvable: ' + srcScript);
+if (!fs.existsSync(srcScript)) fail('source script not found: ' + srcScript);
 fs.mkdirSync(claudeDir, { recursive: true });
 
 // Copy the script (LF line endings; bash on Windows chokes on CRLF)
@@ -27,7 +27,7 @@ if (fs.existsSync(settingsPath)) {
   const raw = fs.readFileSync(settingsPath, 'utf8').trim();
   if (raw) {
     try { settings = JSON.parse(raw); }
-    catch (e) { fail('settings.json invalide (JSON): ' + e.message); }
+    catch (e) { fail('invalid settings.json (JSON): ' + e.message); }
   }
   // Backup before touching
   fs.copyFileSync(settingsPath, settingsPath + '.bak');
@@ -39,8 +39,8 @@ settings.statusLine = { type: 'command', command: newCmd };
 
 fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
 
-console.log('✓ Status line installée.');
+console.log('✓ Status line installed.');
 console.log('  script : ' + destScript);
-console.log('  config : ' + settingsPath + (fs.existsSync(settingsPath + '.bak') ? ' (backup .bak créé)' : ''));
-if (prev) console.log('  ancienne statusLine remplacée: ' + JSON.stringify(prev.command || prev));
-console.log('\nRedémarre Claude Code (ou ouvre une nouvelle session) pour voir la barre.');
+console.log('  config : ' + settingsPath + (fs.existsSync(settingsPath + '.bak') ? ' (.bak backup created)' : ''));
+if (prev) console.log('  previous statusLine replaced: ' + JSON.stringify(prev.command || prev));
+console.log('\nRestart Claude Code (or open a new session) to see the bar.');
