@@ -50,6 +50,7 @@ grad_rgb() {
 }
 
 # Build a gradient progress bar (green->red per cell): make_bar <pct_int> <width>
+# Each cell = 1 tranche (with width=10, one cell per 10%).
 make_bar() {
   local pct=$1 width=$2
   local filled=$(( pct * width / 100 ))
@@ -96,8 +97,11 @@ parts=()
 # Model name
 [ -n "$model" ] && parts+=("$(printf '\033[33m%s\033[0m' "$model")")
 
-# Usage indicators with gradient bars (ctx:▓▓▓░░ | →10pm:▓▓░░░ | →Apr18:▓░░░)
-BAR_W=8
+# Usage indicators: 10-cell gradient bars (green->red), 1 cell per 10%.
+# Layout: ctx:██░░░░░░░░ | →10pm:█░░░░░░░░░ | →Apr18:░░░░░░░░░░
+#   ctx = context window used; →<reset> = 5h then 7d rate-limit windows,
+#   each prefixed by when that window resets.
+BAR_W=10
 usage_parts=()
 if [ -n "$used_pct" ]; then
   used_int=$(printf '%.0f' "$used_pct")

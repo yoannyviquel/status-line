@@ -7,7 +7,7 @@ Claude Code status line with **green-to-red gradient progress bars** for:
 - `→<reset>:` — 7d rate-limit quota (reset shown as a date, e.g. `→Jun5`)
 
 ```
-~/project (main) Opus 4.8  ctx:███░░░░░ | →1am:███░░░░░ | →Jun5:███░░░░░
+~/project (main) Opus 4.8  ctx:███░░░░░░░ | →1am:███░░░░░░░ | →Jun5:███░░░░░░░
 ```
 
 Each filled cell is colored along a green→yellow→red gradient by its position;
@@ -46,6 +46,6 @@ Remove the `statusLine` block from `~/.claude/settings.json` (or restore
 
 Edit `~/.claude/gradient-statusline.sh`:
 
-- `BAR_W=8` — bar width in cells.
+- `BAR_W=10` — bar width in cells (1 cell per 10%).
 - `m=170` in `grad_rgb` — gradient brightness ceiling (lower = darker).
 - empty-cell color `38;2;60;60;60`.
