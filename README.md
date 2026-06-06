@@ -8,6 +8,7 @@ configurable segments (rounded caps at both ends, filled chevrons between):
 - `7d` — 7d rate-limit quota gauge
 - `dir` — current directory name (folder glyph)
 - `branch` — current git branch (branch glyph; omitted outside a repo)
+- `gap` — splitter: everything after it is right-aligned to the window's right edge
 
 ```
  ctx 47%  →5h 30%  →7j 82%   tfs   main 

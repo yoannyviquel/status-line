@@ -15,6 +15,8 @@ Elements:
 - `7d` — 7d rate-limit quota gauge
 - `dir` — current directory name
 - `branch` — current git branch (omitted outside a repo)
+- `gap` — splitter: elements after it are right-aligned to the terminal's right
+  edge (e.g. `dir branch gap ctx 5h 7d`)
 
 ## If the user passed `$ARGUMENTS`
 

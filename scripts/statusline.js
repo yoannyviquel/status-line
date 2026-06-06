@@ -26,7 +26,9 @@ const os = require('os');
 const path = require('path');
 const proc = require('child_process');
 
-const ALL_TYPES = ['ctx', '5h', '7d', 'dir', 'branch'];
+const ALL_TYPES = ['ctx', '5h', '7d', 'dir', 'branch', 'gap'];
+// Right-edge margin (cells) left free when right-aligning after a `gap`.
+const RIGHT_MARGIN = 1;
 
 // --- Powerline look (Nerd Font). Tweak freely. -----------------------------
 // Glyphs built from code points so the source stays pure-ASCII (some editors
@@ -112,12 +114,36 @@ function render(raw) {
 // Build the unified powerline strip from the ordered elements list. Each
 // present element is one segment; absent data (no quota, no git) drops it.
 function indicators(d, elements) {
+  const gi = elements.findIndex((e) => e.type === 'gap');
+  if (gi === -1) {
+    const segs = buildSegs(elements, d);
+    return segs.length ? powerline(segs) : '';
+  }
+  // `gap`: render a left strip and a right strip, pad between to push the right
+  // strip to the terminal's right edge (COLUMNS is set by Claude Code).
+  const lSegs = buildSegs(elements.slice(0, gi), d);
+  const rSegs = buildSegs(elements.slice(gi + 1), d);
+  const left = lSegs.length ? powerline(lSegs) : '';
+  const right = rSegs.length ? powerline(rSegs) : '';
+  if (!right) return left;
+  const cols = parseInt(process.env.COLUMNS || '', 10);
+  const pad = cols ? cols - visW(left) - visW(right) - RIGHT_MARGIN : 0;
+  if (pad < 1) return left ? left + '  ' + right : right;
+  return left + ' '.repeat(pad) + right;
+}
+
+function buildSegs(elements, d) {
   const segs = [];
   for (const el of elements) {
     const s = segmentFor(el.type, d);
     if (s) segs.push(s);
   }
-  return segs.length ? powerline(segs) : '';
+  return segs;
+}
+
+// Visible width: drop ANSI SGR codes, count remaining code points (each glyph = 1 cell).
+function visW(s) {
+  return Array.from(s.replace(/\x1b\[[0-9;]*m/g, '')).length;
 }
 
 function segmentFor(type, d) {
