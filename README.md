@@ -1,38 +1,35 @@
 # status-bar
 
-Additive Claude Code status line with **configurable elements**:
+Additive Claude Code status line rendered as a single **powerline strip** of
+configurable segments (rounded caps at both ends, filled chevrons between):
 
-- `ctx:` — context-window usage (green→red gradient bar)
-- `→<reset>:` — 5h rate-limit quota (reset as a time, e.g. `→1am`)
-- `→<reset>:` — 7d rate-limit quota (reset as a date, e.g. `→Jun5`)
-- `dir` — current directory name (powerline segment)
-- `branch` — current git branch (powerline segment, nests with `dir`)
+- `ctx` — context-window usage gauge (segment background colored green→red by the %)
+- `5h` — 5h rate-limit quota gauge
+- `7d` — 7d rate-limit quota gauge
+- `dir` — current directory name (folder glyph)
+- `branch` — current git branch (branch glyph; omitted outside a repo)
 
 ```
-~/project Opus 4.8  ctx:███░░░░░░░ | →1am:███░░░░░░░ | →Jun5:███░░░░░░░    status-bar  main 
+ ctx 47%  →5h 30%  →7j 82%   tfs   main 
 ```
 
-Each filled gradient cell is colored green→yellow→red by its position; empty
-cells are dim gray. The `dir` / `branch` segments render powerline-style (folder
-/ branch glyphs, filled chevrons, light backgrounds).
+Each gauge segment shows `<label> NN%` and is tinted by its usage level
+(green = low, red = high). `dir` / `branch` use light backgrounds with dark text.
 
-**Requirements:** a **truecolor** (24-bit) terminal, `node` on PATH, and — for
-the `dir` / `branch` glyphs — a **Nerd Font** (otherwise they show as tofu
-boxes; the gradient bars work without one).
+**Requirements:** a **truecolor** (24-bit) terminal, `node` on PATH, and a
+**Nerd Font** for the powerline glyphs (caps, chevrons, folder/branch icons) —
+without one they show as tofu boxes.
 
-## Elements, order & sizes
+## Elements & order
 
 The displayed elements are an **ordered list** in
 `~/.claude/gradient-statusline.config.json`. Order = display order; presence =
-enabled. Each bar (`ctx` / `5h` / `7d`) has its own size:
+enabled. Whatever ends up first/last carries the rounded cap; absent data (no
+quota, no git repo) drops that segment automatically.
 
-- `large` — 10-cell bar (1 cell / 10%)
-- `medium` — 5-cell bar (1 cell / 20%)
-- `compact` — `NN%` on a gradient box, no bar
-
-`dir` / `branch` are powerline text segments (no size). When `dir` is enabled it
-provides the left cap and `branch` chains onto it via a chevron; when `dir` is
-disabled, `branch` carries its own opening cap.
+```json
+{ "baseCommand": "", "elements": [ {"type":"ctx"}, {"type":"5h"}, {"type":"7d"}, {"type":"dir"}, {"type":"branch"} ] }
+```
 
 ## Why a command and not automatic?
 
@@ -67,14 +64,13 @@ refresh):
 /statusline-mode
 ```
 
-…or pass tokens directly (order = display order):
+…or pass elements directly (order = display order):
 
 ```
-/statusline-mode ctx:large 5h:medium 7d:compact dir branch
+/statusline-mode ctx 5h dir branch
 ```
 
-Tokens: `ctx[:size]`, `5h[:size]`, `7d[:size]` (size defaults to `large`), `dir`,
-`branch`. Running with no argument prints the current configuration.
+Running with no argument prints the current configuration.
 
 ## Uninstall
 
@@ -83,12 +79,12 @@ Remove the `statusLine` block from `~/.claude/settings.json` (or restore
 
 ## Tweak the look
 
-Glyphs and colors are constants at the top of `scripts/statusline.js`:
+Constants at the top of `scripts/statusline.js`:
 
 - `GLYPH` — folder / branch icons and the powerline caps & chevron.
-- `SEG` — the `dir` / `branch` segment background & foreground colors.
-- `gradRgb`'s `m=170` — gradient brightness ceiling (lower = darker); empty-cell
-  color is `38;2;60;60;60`.
+- `LABELS` — gauge labels (`ctx`, `→5h`, `→7j`).
+- `GAUGE_FG` — gauge text color; `SEG` — `dir` / `branch` segment colors.
+- `grad`'s `m=170` — color brightness ceiling (lower = darker).
 
 > `~/.claude/gradient-statusline.js` is a copy and gets overwritten on reinstall.
 > To persist changes, edit the source `scripts/statusline.js` and re-run

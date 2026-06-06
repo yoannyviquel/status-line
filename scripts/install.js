@@ -16,17 +16,9 @@ const configPath = path.join(claudeDir, 'gradient-statusline.config.json');
 const srcScript = path.join(__dirname, 'statusline.js');
 const destScript = path.join(claudeDir, 'gradient-statusline.js');
 
-// Default elements when none were configured before: everything, bars at large.
-const DEFAULT_ELEMENTS = [
-  { type: 'ctx', size: 'large' },
-  { type: '5h', size: 'large' },
-  { type: '7d', size: 'large' },
-  { type: 'dir' },
-  { type: 'branch' },
-];
-const SIZES = ['compact', 'medium', 'large'];
-const BAR_TYPES = ['ctx', '5h', '7d'];
 const ALL_TYPES = ['ctx', '5h', '7d', 'dir', 'branch'];
+// Default elements when none were configured before: everything.
+const DEFAULT_ELEMENTS = ALL_TYPES.map((type) => ({ type }));
 
 function fail(msg) { console.error('✗ ' + msg); process.exit(1); }
 
@@ -40,16 +32,17 @@ function isOurs(cmd) {
 function validElements(arr) {
   if (!Array.isArray(arr)) return null;
   const out = [];
+  const seen = new Set();
   for (const e of arr) {
-    if (!e || !ALL_TYPES.includes(e.type)) continue;
-    if (BAR_TYPES.includes(e.type)) out.push({ type: e.type, size: SIZES.includes(e.size) ? e.size : 'large' });
-    else out.push({ type: e.type });
+    if (!e || !ALL_TYPES.includes(e.type) || seen.has(e.type)) continue;
+    seen.add(e.type);
+    out.push({ type: e.type });
   }
   return out.length ? out : null;
 }
 
 function describe(elements) {
-  return elements.map((e) => (BAR_TYPES.includes(e.type) ? `${e.type}:${e.size}` : e.type)).join('  ');
+  return elements.map((e) => e.type).join('  ');
 }
 
 if (!fs.existsSync(srcScript)) fail('source script not found: ' + srcScript);
@@ -101,5 +94,5 @@ console.log('  elements: ' + describe(elements));
 console.log('  settings: ' + settingsPath + (fs.existsSync(settingsPath + '.bak') ? ' (.bak backup created)' : ''));
 if (baseCommand) console.log('  base status line preserved: ' + JSON.stringify(baseCommand));
 else console.log('  no prior status line — showing indicators only.');
-console.log('\nCustomise elements/sizes anytime with /statusline-mode.');
+console.log('\nCustomise which elements show (and their order) anytime with /statusline-mode.');
 console.log('Restart Claude Code (or open a new session) to see it.');

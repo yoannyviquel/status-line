@@ -19,9 +19,9 @@ Steps:
    node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js"
    ```
 
-   On a fresh install it enables all five elements — `ctx`, `5h`, `7d` (gradient
-   bars at `large`), plus the `dir` and `branch` powerline segments. A previous
-   element configuration is preserved across re-installs.
+   On a fresh install it enables all five elements — `ctx`, `5h`, `7d` (gauge
+   segments colored by usage), plus `dir` and `branch`. A previous element
+   configuration is preserved across re-installs.
 
 2. After it succeeds, tell the user to **restart Claude Code** (or open a new
    session) for the status line to take effect. If `settings.json` was already
@@ -29,7 +29,7 @@ Steps:
 
 Notes to relay:
 
-- Customise which elements show, their order, and each bar's size anytime with
+- Customise which elements show, and their order, anytime with
   **`/statusline-mode`**.
 - The `dir` / `branch` segments use **Nerd Font** powerline glyphs (folder /
   branch icons + chevrons) and a **truecolor** terminal — without a Nerd Font
