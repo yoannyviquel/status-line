@@ -1,34 +1,36 @@
 ---
-description: Install the status line (prompts for the render mode)
+description: Install the status line (all elements enabled by default)
 allowed-tools: Bash(node:*)
-argument-hint: "[full|medium|compact]"
 ---
 
-Install the status line: copy the script into `~/.claude/` and wire
-`statusLine` in the user `settings.json` (an existing config is backed up to
+Install the status line: copy the script into `~/.claude/` and wire `statusLine`
+in the user `settings.json` (an existing config is backed up to
 `settings.json.bak` first).
 
-The installer is **additive**: it renders only the indicators and,
-if a status line was already configured, runs it for the prefix and appends the
-indicators — it never discards the user's existing line.
+The installer is **additive**: it renders only the indicators and, if a status
+line was already configured, runs it for the prefix and appends the indicators —
+it never discards the user's existing line.
 
 Steps:
 
-1. **Determine the render mode.**
-   - If `$ARGUMENTS` already contains `full`, `medium`, or `compact`, use that — skip to step 2.
-   - Otherwise ask the user with **AskUserQuestion** (header `Mode`, question
-     "Which status-line render mode do you want?") with these options:
-     - **full** — 10-cell gradient bars, 1 cell / 10% (e.g. `ctx:██░░░░░░░░ | →1pm:███░░░░░░░ | →Jun12:█░░░░░░░░░`)
-     - **medium** — 5-cell gradient bars, 1 cell / 20%
-     - **compact** — tight % on a gradient background, no bars (e.g. `ctx34%→1am62%→Jun1118%`)
-
-2. **Run the installer** with the chosen mode (report its output to the user):
+1. **Run the installer** (report its output to the user):
 
    ```
-   node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" <mode>
+   node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js"
    ```
 
-3. After it succeeds, tell the user to **restart Claude Code** (or open a new
+   On a fresh install it enables all five elements — `ctx`, `5h`, `7d` (gradient
+   bars at `large`), plus the `dir` and `branch` powerline segments. A previous
+   element configuration is preserved across re-installs.
+
+2. After it succeeds, tell the user to **restart Claude Code** (or open a new
    session) for the status line to take effect. If `settings.json` was already
    pointing at a different status line, mention it was preserved as the prefix.
-   Note the mode can be changed anytime afterwards with `/statusline-mode`.
+
+Notes to relay:
+
+- Customise which elements show, their order, and each bar's size anytime with
+  **`/statusline-mode`**.
+- The `dir` / `branch` segments use **Nerd Font** powerline glyphs (folder /
+  branch icons + chevrons) and a **truecolor** terminal — without a Nerd Font
+  those glyphs show as tofu boxes.

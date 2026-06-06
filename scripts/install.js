@@ -4,8 +4,8 @@
 // ADDITIVE: this never discards an existing custom status line. If one is
 // already configured (and it isn't ours), its command is captured into
 // gradient-statusline.config.json; the deployed wrapper then runs it for the
-// prefix and appends the bars. If nothing was configured, only the
-// bars are shown.
+// prefix and appends the indicators. If nothing was configured, only the
+// indicators are shown.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -16,13 +16,40 @@ const configPath = path.join(claudeDir, 'gradient-statusline.config.json');
 const srcScript = path.join(__dirname, 'statusline.js');
 const destScript = path.join(claudeDir, 'gradient-statusline.js');
 
-const MODES = ['full', 'medium', 'compact'];
+// Default elements when none were configured before: everything, bars at large.
+const DEFAULT_ELEMENTS = [
+  { type: 'ctx', size: 'large' },
+  { type: '5h', size: 'large' },
+  { type: '7d', size: 'large' },
+  { type: 'dir' },
+  { type: 'branch' },
+];
+const SIZES = ['compact', 'medium', 'large'];
+const BAR_TYPES = ['ctx', '5h', '7d'];
+const ALL_TYPES = ['ctx', '5h', '7d', 'dir', 'branch'];
 
 function fail(msg) { console.error('✗ ' + msg); process.exit(1); }
 
 // Is a given statusLine command one we installed (current .js or legacy .sh)?
 function isOurs(cmd) {
   return typeof cmd === 'string' && /gradient-statusline\.(js|sh)/.test(cmd);
+}
+
+// Keep a previously-configured elements list if it is valid (preserve the
+// user's customisation across re-installs).
+function validElements(arr) {
+  if (!Array.isArray(arr)) return null;
+  const out = [];
+  for (const e of arr) {
+    if (!e || !ALL_TYPES.includes(e.type)) continue;
+    if (BAR_TYPES.includes(e.type)) out.push({ type: e.type, size: SIZES.includes(e.size) ? e.size : 'large' });
+    else out.push({ type: e.type });
+  }
+  return out.length ? out : null;
+}
+
+function describe(elements) {
+  return elements.map((e) => (BAR_TYPES.includes(e.type) ? `${e.type}:${e.size}` : e.type)).join('  ');
 }
 
 if (!fs.existsSync(srcScript)) fail('source script not found: ' + srcScript);
@@ -59,21 +86,20 @@ if (isOurs(prevCmd)) {
   baseCommand = prevCmd;
 }
 
-// Mode: CLI arg wins, else keep existing, else default to full.
-const argMode = (process.argv[2] || '').trim().toLowerCase();
-if (argMode && !MODES.includes(argMode)) fail(`unknown mode "${argMode}". Choose: ${MODES.join(', ')}`);
-const mode = argMode || (MODES.includes(prevConfig.mode) ? prevConfig.mode : 'full');
+// Elements: keep a valid prior list (preserves customisation), else default.
+const elements = validElements(prevConfig.elements) || DEFAULT_ELEMENTS;
 
-fs.writeFileSync(configPath, JSON.stringify({ baseCommand, mode }, null, 2) + '\n', 'utf8');
+fs.writeFileSync(configPath, JSON.stringify({ baseCommand, elements }, null, 2) + '\n', 'utf8');
 
 settings.statusLine = { type: 'command', command: `node "${destScript.replace(/\\/g, '\\\\')}"` };
 fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
 
 console.log('✓ Status line installed.');
-console.log('  script : ' + destScript);
-console.log('  config : ' + configPath);
-console.log('  mode   : ' + mode);
+console.log('  script  : ' + destScript);
+console.log('  config  : ' + configPath);
+console.log('  elements: ' + describe(elements));
 console.log('  settings: ' + settingsPath + (fs.existsSync(settingsPath + '.bak') ? ' (.bak backup created)' : ''));
 if (baseCommand) console.log('  base status line preserved: ' + JSON.stringify(baseCommand));
 else console.log('  no prior status line — showing indicators only.');
-console.log('\nRestart Claude Code (or open a new session) to see it.');
+console.log('\nCustomise elements/sizes anytime with /statusline-mode.');
+console.log('Restart Claude Code (or open a new session) to see it.');
