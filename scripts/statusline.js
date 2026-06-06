@@ -13,7 +13,7 @@
 //   full    : 10-cell gradient bars (1 cell / 10%)
 //   compact : 5-cell gradient bars  (1 cell / 20%)
 //   ultra   : tight "label+%" with the % on a gradient background, no bars
-//             e.g. ctx34%|→1am62%|→Jun1118%
+//             e.g. ctx34%→1am62%→Jun1118%
 //
 // Single short-lived node process. The only extra spawn is the user's own
 // previous status-line command (if any) — its cost is theirs, not ours.
@@ -82,8 +82,9 @@ function bars(d, mode) {
   }
 
   if (mode === 'ultra') {
-    // tight: label glued to a gradient-backed "NN%", joined by bare "|"
-    return items.map((it) => `${it.label}${makeBox(it.pct)}`).join('|');
+    // tight: label glued to a gradient-backed "NN%", no separators
+    // (the "→" reset prefixes act as visual delimiters)
+    return items.map((it) => `${it.label}${makeBox(it.pct)}`).join('');
   }
   const width = mode === 'compact' ? 5 : 10;
   return items.map((it) => `${it.label}:${makeBar(it.pct, width)}`).join(' | ');
