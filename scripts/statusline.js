@@ -243,7 +243,7 @@ function statusSegment() {
   const c = readStatusCache();
   if (!c) return null;
   const bgc = STATUS_BG[c.indicator] || STATUS_UNKNOWN_BG;
-  const dot = cp(0x273b); // ✻ teardrop-spoked asterisk — sunburst echoing the Claude mark (plain Unicode, no Nerd Font needed)
+  const dot = cp(0xf21e); // nf-fa-heartbeat — service-health pulse glyph (Nerd Font)
   const label = STATUS_LABEL[c.indicator] || 'unknown';
   // OSC 8 hyperlink (ST-terminated) to the status page; clickable where the terminal supports it.
   const link = `\x1b]8;;${STATUS_URL}\x1b\\${dot} ${label}\x1b]8;;\x1b\\`;

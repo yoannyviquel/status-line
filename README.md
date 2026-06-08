@@ -20,7 +20,7 @@ level (green = low, red = high). The `5h` / `7d` labels are the **dynamic reset
 time** reported by Claude Code (`→1am` same-day, `→Jun12` otherwise); they fall
 back to `→5h` / `→7j` when no timestamp is available. `ctx` shows just `NN%`
 (no label). `dir` / `branch` use light backgrounds with dark text. `status` is a
-colored mark (`✻`, green = operational, yellow/orange/red/blue by severity)
+colored heartbeat mark (`nf-fa-heartbeat`, green = operational, yellow/orange/red/blue by severity)
 followed by the status.claude.com label (e.g. `All Systems Operational`); it is
 fetched in the background into a small cache (`~/.claude/claude-status.cache.json`)
 so the render never blocks on the network, and the segment is an OSC 8 hyperlink

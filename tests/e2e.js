@@ -91,7 +91,7 @@ function run(config, d, { columns, statusCache } = {}) {
 }
 
 // Status cache helpers.
-const DOT = String.fromCodePoint(0x273b); // ✻ the status mark glyph
+const DOT = String.fromCodePoint(0xf21e); // nf-fa-heartbeat — the status mark glyph
 const freshCache = (indicator, description = '') => ({ indicator, description, fetchedAt: Date.now() });
 const staleCache = (indicator) => ({ indicator, description: '', fetchedAt: Date.now() - 60 * 60 * 1000 });
 
