@@ -235,7 +235,7 @@ function statusSegment() {
   const c = readStatusCache();
   if (!c) return null;
   const bgc = STATUS_BG[c.indicator] || STATUS_UNKNOWN_BG;
-  const dot = cp(0xf111); // nf-fa-circle
+  const dot = cp(0x2733); // ✳ eight-spoked asterisk — sunburst echoing the Claude mark (plain Unicode, no Nerd Font needed)
   const link = `\x1b]8;;${STATUS_URL}\x07${dot}\x1b]8;;\x07`;
   return { bg: bgc, fg: GAUGE_FG, text: link };
 }
