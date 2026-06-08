@@ -236,9 +236,13 @@ test('12. invariants across subsets — caps + sep formula', () => {
   }
 });
 
-test('13. status operational (none) — dot hidden', () => {
+test('13. status operational (none) — green dot shown', () => {
   const out = run(els('status'), data({ ctx: 20 }), { statusCache: freshCache('none') });
-  assert.strictEqual(out, '', 'no segment when all systems operational');
+  startsAndEndsCapped(out);
+  assert.strictEqual(count(out, SEP), 0, 'single segment');
+  assert.ok(strip(out).includes(DOT), 'shows the status dot');
+  assert.ok(out.includes('48;2;0;150;0'), 'operational => green background');
+  assert.ok(out.includes('\x1b]8;;https://status.claude.com/'), 'dot is an OSC 8 hyperlink');
 });
 
 test('14. status incident (critical) — red dot, capped, no text', () => {

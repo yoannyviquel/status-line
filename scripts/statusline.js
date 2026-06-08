@@ -217,22 +217,24 @@ function branchSegment(d) {
 }
 
 // --- Claude service status segment -----------------------------------------
-// Background severity colors (statuspage `indicator`). `none` (operational) is
-// never shown — the dot is a problem-only signal.
+// Background colors by statuspage `indicator`. `none` = operational (green); the
+// rest escalate by severity. Unknown indicators fall back to grey.
 const STATUS_BG = {
+  none: [0, 150, 0],          // green  (all systems operational)
   minor: [170, 170, 0],       // yellow
   major: [200, 120, 0],       // orange
   critical: [180, 0, 0],      // red
   maintenance: [0, 120, 200], // blue
 };
+const STATUS_UNKNOWN_BG = [100, 100, 100]; // grey
 
-// A colored dot, clickable (OSC 8 hyperlink) to status.claude.com. Returns null
-// when operational, when the cache is missing, or when it is too stale to trust.
+// A colored dot, clickable (OSC 8 hyperlink) to status.claude.com. Like the
+// other elements it shows whenever it is enabled; it is only dropped when there
+// is no usable data yet (cache missing or too stale to trust).
 function statusSegment() {
   const c = readStatusCache();
   if (!c) return null;
-  const bgc = STATUS_BG[c.indicator];
-  if (!bgc) return null; // `none`/unknown -> hide
+  const bgc = STATUS_BG[c.indicator] || STATUS_UNKNOWN_BG;
   const dot = cp(0xf111); // nf-fa-circle
   const link = `\x1b]8;;${STATUS_URL}\x07${dot}\x1b]8;;\x07`;
   return { bg: bgc, fg: GAUGE_FG, text: link };
