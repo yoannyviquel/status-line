@@ -8,6 +8,7 @@ configurable segments (rounded caps at both ends, filled chevrons between):
 - `7d` — 7d rate-limit quota gauge
 - `dir` — current directory name (folder glyph)
 - `branch` — current git branch (branch glyph; omitted outside a repo)
+- `status` — Claude service status ([status.claude.com](https://status.claude.com/)): a colored dot shown **only during an incident** (hidden when all systems are operational), clickable to open the status page
 - `gap` — splitter: everything after it is right-aligned to the window's right edge
 
 ```
@@ -18,7 +19,11 @@ Each gauge segment shows `NN%` followed by its label and is tinted by its usage
 level (green = low, red = high). The `5h` / `7d` labels are the **dynamic reset
 time** reported by Claude Code (`→1am` same-day, `→Jun12` otherwise); they fall
 back to `→5h` / `→7j` when no timestamp is available. `ctx` shows just `NN%`
-(no label). `dir` / `branch` use light backgrounds with dark text.
+(no label). `dir` / `branch` use light backgrounds with dark text. `status` is a
+colored dot (yellow/orange/red/blue by severity) that only appears when
+status.claude.com reports an incident; it is fetched in the background into a
+small cache (`~/.claude/claude-status.cache.json`) so the render never blocks on
+the network, and the dot is an OSC 8 hyperlink to the status page.
 
 **Requirements:** a **truecolor** (24-bit) terminal, `node` on PATH, and a
 **Nerd Font** for the powerline glyphs (caps, chevrons, folder/branch icons) —

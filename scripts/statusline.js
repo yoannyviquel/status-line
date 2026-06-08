@@ -39,10 +39,6 @@ const STATUS_CACHE = () => path.join(os.homedir(), '.claude', 'claude-status.cac
 const STATUS_LOCK = () => path.join(os.homedir(), '.claude', 'claude-status.fetching');
 const STATUS_SOFT_TTL = 120 * 1000; // refresh the cache at most this often
 const STATUS_HARD_TTL = 10 * 60 * 1000; // beyond this the cache is considered unknown
-// Background-refresh entry point: do the network work, never read stdin.
-if (process.argv.includes('--refresh-status')) {
-  refreshStatusCache();
-} else {
 // Columns Claude Code reserves around the status line (~2 left indent + ~2 right);
 // deduct so the right strip lands just inside the edge.
 const EDGE_RESERVE = 4;
@@ -74,6 +70,10 @@ const SEG = {
   branch: { bg: [180, 180, 180], fg: [40, 40, 40] },
 };
 
+// Background-refresh entry point: do the network work, never read stdin.
+if (process.argv.includes('--refresh-status')) {
+  refreshStatusCache();
+} else {
   let raw = '';
   process.stdin.on('data', (c) => (raw += c));
   process.stdin.on('end', () => {

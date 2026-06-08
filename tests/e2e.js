@@ -65,9 +65,20 @@ function data({ cwd, ctx, fiveHour, fiveReset, sevenDay, sevenReset } = {}) {
   return d;
 }
 
-// Spawn the script, return stdout.
-function run(config, d, { columns } = {}) {
+// Spawn the script, return stdout. `statusCache` pre-seeds the Claude-status
+// cache file. Whenever the config includes the `status` element we also drop a
+// fresh lock file so the script's background refresh never spawns a real network
+// fetch — these tests stay fully offline.
+function run(config, d, { columns, statusCache } = {}) {
   const home = homeWith(config);
+  const claudeDir = path.join(home, '.claude');
+  if (statusCache !== undefined) {
+    fs.writeFileSync(path.join(claudeDir, 'claude-status.cache.json'), JSON.stringify(statusCache), 'utf8');
+  }
+  const hasStatus = Array.isArray(config.elements) && config.elements.some((e) => e && e.type === 'status');
+  if (hasStatus) {
+    fs.writeFileSync(path.join(claudeDir, 'claude-status.fetching'), String(Date.now()), 'utf8');
+  }
   const env = { ...process.env, HOME: home, USERPROFILE: home };
   if (columns) env.COLUMNS = String(columns); else delete env.COLUMNS;
   const res = cpmod.spawnSync(process.execPath, [SCRIPT], {
@@ -79,10 +90,19 @@ function run(config, d, { columns } = {}) {
   return res.stdout;
 }
 
+// Status cache helpers.
+const DOT = String.fromCodePoint(0xf111); // nf-fa-circle (the status dot glyph)
+const freshCache = (indicator) => ({ indicator, description: '', fetchedAt: Date.now() });
+const staleCache = (indicator) => ({ indicator, description: '', fetchedAt: Date.now() - 60 * 60 * 1000 });
+
 const els = (...types) => ({ baseCommand: '', elements: types.map((type) => ({ type })) });
 
 // --- assertions on rendered output -----------------------------------------
-function strip(s) { return s.replace(/\x1b\[[0-9;]*m/g, ''); }
+function strip(s) {
+  return s
+    .replace(/\x1b\]8;[^;]*;[^\x07\x1b]*(?:\x07|\x1b\\)/g, '') // OSC 8 hyperlink wrappers
+    .replace(/\x1b\[[0-9;]*m/g, '');                          // SGR color codes
+}
 function count(s, glyph) { return strip(s).split(glyph).length - 1; }
 function visW(s) { return Array.from(strip(s)).length; }
 
@@ -214,6 +234,32 @@ test('12. invariants across subsets — caps + sep formula', () => {
     const vis = strip(out);
     assert.strictEqual(vis.slice(1, -1).includes(RIGHTCAP), false, `no mid rightCap in [${sub.join(',')}]`);
   }
+});
+
+test('13. status operational (none) — dot hidden', () => {
+  const out = run(els('status'), data({ ctx: 20 }), { statusCache: freshCache('none') });
+  assert.strictEqual(out, '', 'no segment when all systems operational');
+});
+
+test('14. status incident (critical) — red dot, capped, no text', () => {
+  const out = run(els('status'), data({ ctx: 20 }), { statusCache: freshCache('critical') });
+  startsAndEndsCapped(out);
+  assert.strictEqual(count(out, SEP), 0, 'single segment');
+  assert.ok(strip(out).includes(DOT), 'shows the status dot');
+  assert.ok(out.includes('48;2;180;0;0'), 'critical => red background');
+  assert.ok(out.includes('\x1b]8;;https://status.claude.com/'), 'dot is an OSC 8 hyperlink');
+});
+
+test('15. status stale beyond hard TTL — dot hidden', () => {
+  const out = run(els('status'), data({ ctx: 20 }), { statusCache: staleCache('critical') });
+  assert.strictEqual(out, '', 'stale cache is treated as unknown -> hidden');
+});
+
+test('16. status with gap — width correct despite invisible hyperlink', () => {
+  const out = run(els('dir', 'gap', 'status'), full(plainDir()), { columns: 120, statusCache: freshCache('major') });
+  startsAndEndsCapped(out, { strips: 2 });
+  assert.strictEqual(visW(out), 120 - 4, 'OSC 8 URL must not count toward width');
+  assert.ok(strip(out).includes(DOT), 'shows the status dot in the right strip');
 });
 
 // --- run -------------------------------------------------------------------

@@ -1,7 +1,7 @@
 ---
 description: Configure the status-line elements (which ones and their order)
 allowed-tools: Bash(node:*), AskUserQuestion
-argument-hint: "[ctx 5h 7d dir branch]"
+argument-hint: "[ctx 5h 7d dir branch status]"
 ---
 
 Configure which elements the status line shows and in which order. The look is a
@@ -15,6 +15,9 @@ Elements:
 - `7d` — 7d rate-limit quota gauge
 - `dir` — current directory name
 - `branch` — current git branch (omitted outside a repo)
+- `status` — Claude service status (status.claude.com): a colored dot shown
+  **only when there is an incident** (hidden when all systems are operational);
+  the dot is a clickable link to the status page
 - `gap` — splitter: elements after it are right-aligned to the terminal's right
   edge (e.g. `dir branch gap ctx 5h 7d`)
 
@@ -30,10 +33,10 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/set-mode.js" $ARGUMENTS
 
 1. **Pick the elements** with **AskUserQuestion** (`multiSelect: true`, header
    `Elements`, question "Which elements to show?"): options `ctx`, `5h`, `7d`,
-   `dir`, `branch`.
+   `dir`, `branch`, `status`.
 
 2. **Build the element list** in this fixed display order — `ctx`, `5h`, `7d`,
-   `dir`, `branch` — keeping only the selected ones. (Finer ordering is possible
+   `dir`, `branch`, `status` — keeping only the selected ones. (Finer ordering is possible
    by passing the elements directly as `$ARGUMENTS`, in any order.)
 
 3. **Apply** by running, and report the output:

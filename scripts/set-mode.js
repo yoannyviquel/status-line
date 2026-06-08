@@ -3,7 +3,7 @@
 //
 // Usage: node set-mode.js [element ...]
 //   element (order = display order, presence = enabled):
-//     ctx   5h   7d   dir   branch
+//     ctx   5h   7d   dir   branch   status
 //   no arg -> print the current config + help
 //
 // Writes `elements` into ~/.claude/gradient-statusline.config.json (preserving
@@ -13,7 +13,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const ALL_TYPES = ['ctx', '5h', '7d', 'dir', 'branch', 'gap'];
+const ALL_TYPES = ['ctx', '5h', '7d', 'dir', 'branch', 'status', 'gap'];
 // Legacy size suffixes / mode words are accepted and ignored (the look is fixed).
 const LEGACY_MODES = ['full', 'medium', 'compact', 'large'];
 
