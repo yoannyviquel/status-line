@@ -1,4 +1,4 @@
-# status-bar
+# status-line
 
 Additive Claude Code status line rendered as a single **powerline strip** of
 configurable segments (rounded caps at both ends, filled chevrons between):
@@ -11,15 +11,19 @@ configurable segments (rounded caps at both ends, filled chevrons between):
 - `gap` — splitter: everything after it is right-aligned to the window's right edge
 
 ```
- ctx 47%  →5h 30%  →7j 82%   tfs   main 
+  47%   30% →1am   82% →Jun12    tfs   main 
 ```
 
-Each gauge segment shows `<label> NN%` and is tinted by its usage level
-(green = low, red = high). `dir` / `branch` use light backgrounds with dark text.
+Each gauge segment shows `NN%` followed by its label and is tinted by its usage
+level (green = low, red = high). The `5h` / `7d` labels are the **dynamic reset
+time** reported by Claude Code (`→1am` same-day, `→Jun12` otherwise); they fall
+back to `→5h` / `→7j` when no timestamp is available. `ctx` shows just `NN%`
+(no label). `dir` / `branch` use light backgrounds with dark text.
 
 **Requirements:** a **truecolor** (24-bit) terminal, `node` on PATH, and a
 **Nerd Font** for the powerline glyphs (caps, chevrons, folder/branch icons) —
-without one they show as tofu boxes.
+without one they show as tofu boxes. Grab one at <https://www.nerdfonts.com/>
+and set it as your terminal font.
 
 ## Elements & order
 

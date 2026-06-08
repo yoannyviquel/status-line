@@ -16,7 +16,7 @@ const configPath = path.join(claudeDir, 'gradient-statusline.config.json');
 const srcScript = path.join(__dirname, 'statusline.js');
 const destScript = path.join(claudeDir, 'gradient-statusline.js');
 
-const ALL_TYPES = ['ctx', '5h', '7d', 'dir', 'branch', 'gap'];
+const ALL_TYPES = ['ctx', '5h', '7d', 'dir', 'branch', 'status', 'gap'];
 // Default elements when none were configured before: everything.
 const DEFAULT_ELEMENTS = ALL_TYPES.map((type) => ({ type }));
 

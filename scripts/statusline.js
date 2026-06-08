@@ -26,7 +26,23 @@ const os = require('os');
 const path = require('path');
 const proc = require('child_process');
 
-const ALL_TYPES = ['ctx', '5h', '7d', 'dir', 'branch', 'gap'];
+const ALL_TYPES = ['ctx', '5h', '7d', 'dir', 'branch', 'status', 'gap'];
+
+// --- Claude service status (status.claude.com) -----------------------------
+// `status` is a colored dot that only appears when something is wrong. It is
+// driven by a tiny on-disk cache so the render path never touches the network:
+// rendering reads the cache (sync); refreshing it is a detached self-spawn
+// (`--refresh-status`) that fetches the statuspage JSON and rewrites the cache.
+const STATUS_URL = 'https://status.claude.com/';
+const STATUS_API = 'https://status.claude.com/api/v2/status.json';
+const STATUS_CACHE = () => path.join(os.homedir(), '.claude', 'claude-status.cache.json');
+const STATUS_LOCK = () => path.join(os.homedir(), '.claude', 'claude-status.fetching');
+const STATUS_SOFT_TTL = 120 * 1000; // refresh the cache at most this often
+const STATUS_HARD_TTL = 10 * 60 * 1000; // beyond this the cache is considered unknown
+// Background-refresh entry point: do the network work, never read stdin.
+if (process.argv.includes('--refresh-status')) {
+  refreshStatusCache();
+} else {
 // Columns Claude Code reserves around the status line (~2 left indent + ~2 right);
 // deduct so the right strip lands just inside the edge.
 const EDGE_RESERVE = 4;
@@ -58,12 +74,14 @@ const SEG = {
   branch: { bg: [180, 180, 180], fg: [40, 40, 40] },
 };
 
-let raw = '';
-process.stdin.on('data', (c) => (raw += c));
-process.stdin.on('end', () => {
-  try { process.stdout.write(render(raw)); }
-  catch { process.stdout.write(indicators(safeParse(raw), defaultElements())); }
-});
+  let raw = '';
+  process.stdin.on('data', (c) => (raw += c));
+  process.stdin.on('end', () => {
+    try { process.stdout.write(render(raw)); }
+    catch { process.stdout.write(indicators(safeParse(raw), defaultElements())); }
+    try { maybeRefreshStatus(); } catch { /* never let the refresh trigger break rendering */ }
+  });
+}
 
 function safeParse(r) { try { return JSON.parse(r); } catch { return {}; } }
 function has(v) { return v !== undefined && v !== null && v !== ''; }
@@ -144,9 +162,18 @@ function buildSegs(elements, d) {
   return segs;
 }
 
-// Visible width: drop ANSI SGR codes, count remaining code points (each glyph = 1 cell).
+// Visible width: drop ANSI SGR codes and OSC 8 hyperlink wrappers, then count
+// remaining code points (each glyph = 1 cell). OSC 8: ESC ] 8 ; ; URL ST ... ESC ] 8 ; ; ST,
+// where ST is BEL (\x07) or ESC \. The URL is invisible, so it must not count.
 function visW(s) {
-  return Array.from(s.replace(/\x1b\[[0-9;]*m/g, '')).length;
+  return Array.from(stripAnsi(s)).length;
+}
+
+// Strip SGR color codes and OSC 8 hyperlink sequences (keeps the visible text).
+function stripAnsi(s) {
+  return s
+    .replace(/\x1b\]8;[^;]*;[^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
+    .replace(/\x1b\[[0-9;]*m/g, '');
 }
 
 function segmentFor(type, d) {
@@ -163,6 +190,7 @@ function segmentFor(type, d) {
   }
   if (type === 'dir') return dirSegment(d);
   if (type === 'branch') return branchSegment(d);
+  if (type === 'status') return statusSegment();
   return null;
 }
 
@@ -186,6 +214,89 @@ function branchSegment(d) {
   const br = gitBranch(cwd);
   if (!br) return null;
   return { ...SEG.branch, group: 'loc', text: `${GLYPH.branch} ${br}` };
+}
+
+// --- Claude service status segment -----------------------------------------
+// Background severity colors (statuspage `indicator`). `none` (operational) is
+// never shown — the dot is a problem-only signal.
+const STATUS_BG = {
+  minor: [170, 170, 0],       // yellow
+  major: [200, 120, 0],       // orange
+  critical: [180, 0, 0],      // red
+  maintenance: [0, 120, 200], // blue
+};
+
+// A colored dot, clickable (OSC 8 hyperlink) to status.claude.com. Returns null
+// when operational, when the cache is missing, or when it is too stale to trust.
+function statusSegment() {
+  const c = readStatusCache();
+  if (!c) return null;
+  const bgc = STATUS_BG[c.indicator];
+  if (!bgc) return null; // `none`/unknown -> hide
+  const dot = cp(0xf111); // nf-fa-circle
+  const link = `\x1b]8;;${STATUS_URL}\x07${dot}\x1b]8;;\x07`;
+  return { bg: bgc, fg: GAUGE_FG, text: link };
+}
+
+// Read + validate the status cache. Null if absent, malformed, or older than the
+// hard TTL (a stale problem must not linger after it may have been resolved).
+function readStatusCache() {
+  try {
+    const c = JSON.parse(fs.readFileSync(STATUS_CACHE(), 'utf8'));
+    if (!c || typeof c.indicator !== 'string' || typeof c.fetchedAt !== 'number') return null;
+    if (Date.now() - c.fetchedAt > STATUS_HARD_TTL) return null;
+    return c;
+  } catch { return null; }
+}
+
+// Trigger a detached background refresh when the cache is stale — but only if the
+// `status` element is actually enabled, so disabled users pay nothing. A lock
+// file rate-limits concurrent refreshes to one per soft-TTL window.
+function maybeRefreshStatus() {
+  const { elements } = loadConfig();
+  if (!elements.some((e) => e.type === 'status')) return;
+  const c = readStatusCache();
+  if (c && Date.now() - c.fetchedAt < STATUS_SOFT_TTL) return;
+  try {
+    const st = fs.statSync(STATUS_LOCK());
+    if (Date.now() - st.mtimeMs < STATUS_SOFT_TTL) return; // a refresh is already in flight
+  } catch { /* no lock */ }
+  try { fs.writeFileSync(STATUS_LOCK(), String(Date.now()), 'utf8'); } catch { /* ignore */ }
+  try {
+    proc.spawn(process.execPath, [__filename, '--refresh-status'], {
+      detached: true, stdio: 'ignore', windowsHide: true,
+    }).unref();
+  } catch { /* ignore — best effort */ }
+}
+
+// Fetch status.json and rewrite the cache atomically. Network/parse failures are
+// silent: the previous cache (if any) stays in place.
+function refreshStatusCache() {
+  const https = require('https');
+  const done = (ok) => { try { fs.unlinkSync(STATUS_LOCK()); } catch { /* ignore */ } process.exit(ok ? 0 : 0); };
+  try {
+    const req = https.get(STATUS_API, { timeout: 3000 }, (res) => {
+      if (res.statusCode !== 200) { res.resume(); return done(false); }
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (ch) => (body += ch));
+      res.on('end', () => {
+        try {
+          const j = JSON.parse(body);
+          const indicator = j?.status?.indicator;
+          if (typeof indicator !== 'string') return done(false);
+          const out = { indicator, description: j?.status?.description || '', fetchedAt: Date.now() };
+          const dest = STATUS_CACHE();
+          const tmp = dest + '.' + process.pid + '.tmp';
+          fs.writeFileSync(tmp, JSON.stringify(out), 'utf8');
+          fs.renameSync(tmp, dest);
+          done(true);
+        } catch { done(false); }
+      });
+    });
+    req.on('timeout', () => { req.destroy(); done(false); });
+    req.on('error', () => done(false));
+  } catch { done(false); }
 }
 
 // --- ANSI / powerline rendering --------------------------------------------
