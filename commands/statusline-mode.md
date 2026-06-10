@@ -16,8 +16,9 @@ Elements:
 - `dir` — current directory name
 - `branch` — current git branch (omitted outside a repo)
 - `status` — Claude service status (status.claude.com): a colored heartbeat mark
-  + label shown **only during an incident** (hidden when operational), a
-  clickable link to the status page
+  + label shown **only during an incident** (hidden when operational), and **only
+  when the incident concerns the model in use** (e.g. a Haiku incident is hidden
+  while you are on Opus); a clickable link to the status page
 - `pr` — the session's pull requests, rendered on a **second row**: one clickable
   mini-segment per PR (status glyph + `#id`, colored by status). Captured
   MCP-agnostically as PRs are created; shown only when there is at least one.

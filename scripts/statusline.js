@@ -35,7 +35,12 @@ const ALL_TYPES = ['ctx', '5h', '7d', 'model', 'dir', 'branch', 'status', 'pr', 
 // rendering reads the cache (sync); refreshing it is a detached self-spawn
 // (`--refresh-status`) that fetches the statuspage JSON and rewrites the cache.
 const STATUS_URL = 'https://status.claude.com/';
-const STATUS_API = 'https://status.claude.com/api/v2/status.json';
+// summary.json (not status.json) so we also get the unresolved `incidents` — their
+// names carry the affected model (e.g. "Elevated errors on Claude Haiku 4.5"),
+// which lets us hide the segment when the incident does not concern the model in use.
+const STATUS_API = 'https://status.claude.com/api/v2/summary.json';
+// Model families used to decide whether an incident concerns the current model.
+const MODEL_FAMILIES = ['opus', 'sonnet', 'haiku'];
 const STATUS_CACHE = () => path.join(os.homedir(), '.claude', 'claude-status.cache.json');
 const STATUS_LOCK = () => path.join(os.homedir(), '.claude', 'claude-status.fetching');
 const STATUS_SOFT_TTL = 120 * 1000; // refresh the cache at most this often
@@ -222,7 +227,7 @@ function segmentFor(type, d) {
   if (type === 'model') return modelSegment(d);
   if (type === 'dir') return dirSegment(d);
   if (type === 'branch') return branchSegment(d);
-  if (type === 'status') return statusSegment();
+  if (type === 'status') return statusSegment(d);
   return null;
 }
 
@@ -286,15 +291,45 @@ const STATUS_LABEL = {
   maintenance: 'maintenance',
 };
 
+// The current model's family (opus / sonnet / haiku), or '' if unknown.
+function modelFamily(d) {
+  const s = String(d && d.model && (d.model.display_name || d.model.id) || '').toLowerCase();
+  return MODEL_FAMILIES.find((f) => s.includes(f)) || '';
+}
+
+// Does an incident text name any model family? Returns the families it mentions.
+function familiesIn(text) {
+  const t = String(text || '').toLowerCase();
+  return MODEL_FAMILIES.filter((f) => t.includes(f));
+}
+
+// Does the cached incident set concern the model in use? An incident that names
+// no model family is general (concerns everyone); one that names families concerns
+// us only if ours is among them. Show if ANY incident concerns us. With no
+// per-incident data (older cache / maintenance) or an unknown current model, show.
+function statusConcernsModel(c, d) {
+  const incidents = Array.isArray(c.incidents) ? c.incidents : [];
+  if (!incidents.length) return true;
+  const mine = modelFamily(d);
+  if (!mine) return true;
+  for (const inc of incidents) {
+    const fams = familiesIn(inc && (inc.text || inc.name) || inc);
+    if (!fams.length || fams.includes(mine)) return true;
+  }
+  return false; // every active incident is about other model families
+}
+
 // A colored health mark. It is a problem-only signal: shown only when there is an
-// incident — dropped when all systems are operational, and when there is no usable
-// data (cache missing/stale). `mergeNext` so it blends into its neighbours with a
-// plain colored chevron (no wide black band), letting it sit flush after `model`.
-// Clickable (OSC 8) to status.claude.com via the `link` field — the URL bytes are
-// invisible and visW() strips OSC 8, so the layout math stays exact.
-function statusSegment() {
+// incident — dropped when all systems are operational, when there is no usable
+// data (cache missing/stale), and when the incident does not concern the model in
+// use (e.g. a Haiku incident while you are on Opus). `mergeNext` so it blends into
+// its neighbours with a plain colored chevron (no wide black band), sitting flush
+// after `model`. Clickable (OSC 8) to status.claude.com via the `link` field — the
+// URL bytes are invisible and visW() strips OSC 8, so the layout math stays exact.
+function statusSegment(d) {
   const c = readStatusCache();
   if (!c || c.indicator === 'none') return null;
+  if (!statusConcernsModel(c, d)) return null;
   const bgc = STATUS_BG[c.indicator] || STATUS_UNKNOWN_BG;
   const dot = cp(0xf21e); // nf-fa-heartbeat — service-health pulse glyph (Nerd Font)
   // Show the statuspage `description` (user-facing impact, e.g. "Partially Degraded
@@ -350,7 +385,13 @@ function refreshStatusCache() {
           const j = JSON.parse(body);
           const indicator = j?.status?.indicator;
           if (typeof indicator !== 'string') return done(false);
-          const out = { indicator, description: j?.status?.description || '', fetchedAt: Date.now() };
+          // Capture each unresolved incident's name + latest update bodies so the
+          // render path can tell which model family the incident concerns.
+          const incidents = Array.isArray(j.incidents) ? j.incidents.map((i) => ({
+            text: [i && i.name, ...(((i && i.incident_updates) || []).slice(0, 2).map((u) => u && u.body))]
+              .filter(Boolean).join(' ').slice(0, 300),
+          })) : [];
+          const out = { indicator, description: j?.status?.description || '', incidents, fetchedAt: Date.now() };
           const dest = STATUS_CACHE();
           const tmp = dest + '.' + process.pid + '.tmp';
           fs.writeFileSync(tmp, JSON.stringify(out), 'utf8');

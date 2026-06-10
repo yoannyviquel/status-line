@@ -54,9 +54,10 @@ function gitDir(branch) {
 function plainDir() { return tmpdir('sb-plain-'); }
 
 // Build a statusLine JSON.
-function data({ cwd, ctx, fiveHour, fiveReset, sevenDay, sevenReset, sessionId, pr } = {}) {
+function data({ cwd, ctx, fiveHour, fiveReset, sevenDay, sevenReset, sessionId, pr, model } = {}) {
   const d = {};
   if (cwd) d.workspace = { current_dir: cwd };
+  if (model) d.model = typeof model === 'string' ? { display_name: model } : model;
   if (ctx !== undefined) d.context_window = { used_percentage: ctx };
   const rl = {};
   if (fiveHour !== undefined) rl.five_hour = { used_percentage: fiveHour, resets_at: fiveReset };
@@ -381,6 +382,50 @@ test('24. pr-capture is a no-op when the pr element is disabled', () => {
   fs.writeFileSync(path.join(home, '.claude', 'gradient-statusline.config.json'), JSON.stringify(els('ctx')), 'utf8');
   capture(home, { session_id: 'cap-4', tool_name: 'x_create_pull_request', tool_response: 'created ' + TFS_PR(1) });
   assert.ok(!fs.existsSync(prFile(home, 'cap-4')), 'disabled users pay nothing');
+});
+
+// --- status: model-targeted incident filtering -----------------------------
+const cacheInc = (indicator, incidents, description = 'Degraded') => ({ indicator, description, incidents, fetchedAt: Date.now() });
+
+test('25. incident about another model — hidden (Haiku incident while on Opus)', () => {
+  const out = run(els('status'), data({ ctx: 20, model: 'Opus 4.8' }), {
+    statusCache: cacheInc('minor', [{ text: 'Elevated errors on Claude Haiku 4.5' }]),
+  });
+  assert.strictEqual(out, '', 'incident about another model is hidden');
+});
+
+test('26. incident about the current model — shown', () => {
+  const out = run(els('status'), data({ ctx: 20, model: 'Haiku 4.5' }), {
+    statusCache: cacheInc('minor', [{ text: 'Elevated errors on Claude Haiku 4.5' }]),
+  });
+  startsAndEndsCapped(out);
+  assert.ok(strip(out).includes(DOT), 'shown when the incident concerns the model in use');
+});
+
+test('27. general incident (no model named) — shown regardless of model', () => {
+  const out = run(els('status'), data({ ctx: 20, model: 'Opus 4.8' }), {
+    statusCache: cacheInc('major', [{ text: 'API elevated error rates' }]),
+  });
+  startsAndEndsCapped(out);
+});
+
+test('28. model-targeted incident but unknown current model — shown', () => {
+  const out = run(els('status'), data({ ctx: 20 }), {
+    statusCache: cacheInc('minor', [{ text: 'Claude Haiku 4.5 degraded' }]),
+  });
+  startsAndEndsCapped(out);
+});
+
+test('29. mixed incidents, one concerns my model — shown', () => {
+  const out = run(els('status'), data({ ctx: 20, model: 'Opus 4.8' }), {
+    statusCache: cacheInc('minor', [{ text: 'Claude Haiku 4.5 errors' }, { text: 'Claude Opus 4.8 latency' }]),
+  });
+  startsAndEndsCapped(out);
+});
+
+test('30. legacy cache (no incidents field) — shown (cannot tell, fail open)', () => {
+  const out = run(els('status'), data({ ctx: 20, model: 'Opus 4.8' }), { statusCache: freshCache('minor', 'Partially Degraded') });
+  startsAndEndsCapped(out);
 });
 
 // --- run -------------------------------------------------------------------
