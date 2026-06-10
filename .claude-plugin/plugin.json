@@ -1,6 +1,6 @@
 {
   "name": "status-line",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Additive status line with green-to-red gradient indicators for context window and 5h / 7d rate-limit quotas. Single-process (node only). Configurable ordered elements (ctx / 5h / 7d / model / dir / branch / gap), switchable via /statusline-mode. A Nerd Font is recommended for the powerline glyphs. Run /install-statusline once to enable.",
   "author": {
     "name": "Yoann Yviquel"

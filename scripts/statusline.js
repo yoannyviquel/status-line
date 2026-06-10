@@ -210,8 +210,12 @@ function gauge(glyph, label, pct) {
 function modelSegment(d) {
   let name = d.model?.display_name || d.model?.id;
   if (!has(name)) return null;
-  // Drop a trailing context-size note, e.g. "Opus 4.8 (1M context)" -> "Opus 4.8".
-  name = String(name).replace(/\s*\([^)]*context[^)]*\)\s*$/i, '').trim();
+  // Drop a trailing context-size note then the version, e.g.
+  // "Opus 4.8 (1M context)" -> "Opus 4.8" -> "Opus".
+  name = String(name)
+    .replace(/\s*\([^)]*context[^)]*\)\s*$/i, '')
+    .replace(/\s+v?\d[\d.]*\s*$/, '')
+    .trim();
   return { ...SEG.model, group: 'loc', text: `${GLYPH.model} ${name}` };
 }
 
