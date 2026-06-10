@@ -205,7 +205,10 @@ function gauge(glyph, label, pct) {
 function dirSegment(d) {
   const cwd = d.workspace?.current_dir || d.cwd || process.cwd();
   if (!has(cwd)) return null;
-  const name = path.basename(String(cwd).replace(/[\\/]+$/, '')) || String(cwd);
+  // Inside a git repo: show the repo (toplevel) name instead of the cwd basename.
+  const root = gitRoot(cwd);
+  const base = root || String(cwd);
+  const name = path.basename(base.replace(/[\\/]+$/, '')) || String(cwd);
   return { ...SEG.dir, group: 'loc', text: `${GLYPH.folder} ${name}` };
 }
 
@@ -338,6 +341,22 @@ function powerline(segs) {
   }
   out += DEFBG + fg(segs[segs.length - 1].bg) + GLYPH.rightCap + RESET;
   return out;
+}
+
+// --- git repo root (no spawn) ----------------------------------------------
+// Walk up from `start` to the directory holding .git. Returns its absolute path,
+// or '' if not in a repo. The repo name is the basename of this path.
+function gitRoot(start) {
+  try {
+    let dir = path.resolve(String(start));
+    let prev = '';
+    while (dir && dir !== prev) {
+      try { if (fs.existsSync(path.join(dir, '.git'))) return dir; } catch { /* ignore */ }
+      prev = dir;
+      dir = path.dirname(dir);
+    }
+  } catch { /* ignore */ }
+  return '';
 }
 
 // --- git branch (no spawn) -------------------------------------------------
