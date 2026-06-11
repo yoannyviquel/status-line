@@ -152,15 +152,8 @@ function render(raw) {
     } catch { prefix = ''; }
   }
   const ind = indicators(d, elements);
-  const line1 = prefix && ind ? prefix + ' ' + ind : (prefix || ind); // space-join, matches CC layout
-  // `pr` is a second-line element: a clickable list of the session's pull
-  // requests on its own row below the strip (Claude Code renders each output
-  // line as a separate status row). Shown only when there are PRs to list.
-  if (elements.some((e) => e.type === 'pr')) {
-    const l2 = prLine(d);
-    if (l2) return line1 ? line1 + '\n' + l2 : l2;
-  }
-  return line1;
+  if (prefix && ind) return prefix + ' ' + ind; // space-join, matches CC layout
+  return prefix || ind;
 }
 
 // ---------------------------------------------------------------------------
@@ -192,6 +185,9 @@ function indicators(d, elements) {
 function buildSegs(elements, d) {
   const segs = [];
   for (const el of elements) {
+    // `pr` expands into one mini-segment per session pull request, in place
+    // (e.g. right after `branch`); every other element is a single segment.
+    if (el.type === 'pr') { segs.push(...prSegs(d)); continue; }
     const s = segmentFor(el.type, d);
     if (s) segs.push(s);
   }
@@ -291,32 +287,39 @@ const STATUS_LABEL = {
   maintenance: 'maintenance',
 };
 
-// The current model's family (opus / sonnet / haiku), or '' if unknown.
-function modelFamily(d) {
+// The current model's family (opus / sonnet / haiku) and major.minor version,
+// e.g. "Opus 4.8" / "claude-opus-4-8" -> { family: 'opus', version: '4.8' }.
+function modelIdent(d) {
   const s = String(d && d.model && (d.model.display_name || d.model.id) || '').toLowerCase();
-  return MODEL_FAMILIES.find((f) => s.includes(f)) || '';
+  const family = MODEL_FAMILIES.find((f) => s.includes(f)) || '';
+  const m = family ? /(\d+[.\-]\d+|\d+)/.exec(s.replace(family, ' ')) : null;
+  return { family, version: m ? m[1].replace(/-/g, '.') : '' };
 }
 
-// Does an incident text name any model family? Returns the families it mentions.
-function familiesIn(text) {
-  const t = String(text || '').toLowerCase();
-  return MODEL_FAMILIES.filter((f) => t.includes(f));
+// Does ONE incident concern the model in use? It concerns us when it names no
+// model (general), or names our family with no version (family-wide), or names
+// our family with a version equal to ours. It does NOT concern us when it only
+// names other families, or our family but only other versions (e.g. a Haiku 4.5
+// incident while we run Haiku 4.6).
+function incidentConcerns(text, me) {
+  const matches = [...String(text || '').toLowerCase().matchAll(/(opus|sonnet|haiku)[\s/-]*(\d+[.\-]\d+|\d+)?/g)];
+  if (!matches.length) return true;                  // no model named -> general
+  const mine = matches.filter((m) => m[1] === me.family);
+  if (!mine.length) return false;                    // names models, none is ours
+  const versions = mine.map((m) => m[2]).filter(Boolean).map((v) => v.replace(/-/g, '.'));
+  if (!versions.length || !me.version) return true;  // family-wide, or no version to compare
+  return versions.includes(me.version);
 }
 
-// Does the cached incident set concern the model in use? An incident that names
-// no model family is general (concerns everyone); one that names families concerns
-// us only if ours is among them. Show if ANY incident concerns us. With no
-// per-incident data (older cache / maintenance) or an unknown current model, show.
+// Show the status segment only if at least one active incident concerns the model
+// in use. No per-incident data (older cache / maintenance) or an unknown current
+// model both fail open (show).
 function statusConcernsModel(c, d) {
   const incidents = Array.isArray(c.incidents) ? c.incidents : [];
   if (!incidents.length) return true;
-  const mine = modelFamily(d);
-  if (!mine) return true;
-  for (const inc of incidents) {
-    const fams = familiesIn(inc && (inc.text || inc.name) || inc);
-    if (!fams.length || fams.includes(mine)) return true;
-  }
-  return false; // every active incident is about other model families
+  const me = modelIdent(d);
+  if (!me.family) return true;
+  return incidents.some((inc) => incidentConcerns(inc && (inc.text || inc.name) || inc, me));
 }
 
 // A colored health mark. It is a problem-only signal: shown only when there is an
@@ -405,12 +408,12 @@ function refreshStatusCache() {
   } catch { done(false); }
 }
 
-// --- session pull requests (second status line) ----------------------------
+// --- session pull requests --------------------------------------------------
 // PRs created during the session are captured to disk by scripts/pr-capture.js
 // (a PostToolUse hook), keyed by the Claude Code `session_id` that this renderer
-// also receives on stdin. The `pr` element lists them on a second row: one
-// clickable mini-segment per PR (status glyph + "#<number>"). Render is
-// read-only — it never writes the cache.
+// also receives on stdin. The `pr` element expands inline (at its position in the
+// element order) into one clickable mini-segment per PR (status glyph +
+// "#<number>"). Render is read-only — it never writes the cache.
 const SESSION_PR_DIR = () => path.join(os.homedir(), '.claude', 'status-line-prs');
 const PR_FG = [255, 255, 255];
 // Status -> { background color, glyph }. Covers Azure DevOps (active / completed /
@@ -468,22 +471,14 @@ function readSessionPrs(d) {
 function prSeg(pr) {
   const meta = PR_STATUS[prStatusKey(pr.status)] || PR_DEFAULT;
   const label = has(pr.number) ? '#' + pr.number : 'PR';
-  return { bg: meta.bg, fg: PR_FG, glyph: cp(meta.glyph), label, family: 'pr', link: pr.url, mergeNext: true };
+  // No mergeNext needed: sepStyle() already merges any edge touching a `pr` segment.
+  return { bg: meta.bg, fg: PR_FG, glyph: cp(meta.glyph), label, family: 'pr', link: pr.url };
 }
 
-// The second status line: a powerline strip listing the session's PRs ('' when
-// none). If the strip would exceed COLUMNS, drop the overflow and append "+N".
-function prLine(d) {
-  const prs = readSessionPrs(d);
-  if (!prs.length) return '';
-  let segs = prs.map(prSeg);
-  const cols = parseInt(process.env.COLUMNS || '', 10);
-  if (cols) {
-    let extra = 0;
-    while (segs.length > 1 && visW(powerline(segs)) > cols - EDGE_RESERVE) { segs.pop(); extra++; }
-    if (extra) segs.push({ bg: [60, 60, 60], fg: PR_FG, glyph: cp(0x2026), label: '+' + extra, family: 'pr', mergeNext: true });
-  }
-  return powerline(segs);
+// The session's PRs as inline segments (one per PR), placed wherever `pr` sits in
+// the element order (e.g. right after `branch`). Empty when there are none.
+function prSegs(d) {
+  return readSessionPrs(d).map(prSeg);
 }
 
 // --- ANSI / powerline rendering --------------------------------------------
@@ -512,6 +507,7 @@ function renderText(seg) {
 // a `mergeNext` override wins; else same family uses its declared sep; else band.
 function sepStyle(a, b) {
   if (a.mergeNext) return 'merge';
+  if (a.family === 'pr' || b.family === 'pr') return 'merge'; // PRs always blend — no wide band
   if (a.family === b.family && FAMILY[a.family]) return FAMILY[a.family].sep;
   return SEP_CROSS;
 }

@@ -19,10 +19,10 @@ Elements:
   + label shown **only during an incident** (hidden when operational), and **only
   when the incident concerns the model in use** (e.g. a Haiku incident is hidden
   while you are on Opus); a clickable link to the status page
-- `pr` — the session's pull requests, rendered on a **second row**: one clickable
-  mini-segment per PR (status glyph + `#id`, colored by status). Captured
-  MCP-agnostically as PRs are created; shown only when there is at least one.
-  Its position among the other (first-row) elements does not matter.
+- `pr` — the session's pull requests, expanded **inline** at this element's
+  position (e.g. put it right after `branch`): one clickable mini-segment per PR
+  (status glyph + `#id`, colored by status). Captured MCP-agnostically as PRs are
+  created; nothing shown when there are none.
 - `gap` — splitter: elements after it are right-aligned to the terminal's right
   edge (e.g. `dir branch gap ctx 5h 7d`)
 
@@ -41,9 +41,9 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/set-mode.js" $ARGUMENTS
    `model`, `dir`, `branch`, `status`, `pr`.
 
 2. **Build the element list** in this fixed display order — `ctx`, `5h`, `7d`,
-   `model`, `dir`, `branch`, `status`, `pr` — keeping only the selected ones.
-   (`pr` is a second-row list, so its position is irrelevant. Finer ordering is
-   possible by passing the elements directly as `$ARGUMENTS`, in any order.)
+   `model`, `dir`, `branch`, `pr`, `status` — keeping only the selected ones.
+   (`pr` expands inline at its position; placing it after `branch` reads well.
+   Finer ordering is possible by passing the elements directly as `$ARGUMENTS`.)
 
 3. **Apply** by running, and report the output:
 

@@ -279,48 +279,47 @@ test('16. status with gap — width correct despite invisible hyperlink', () => 
   assert.ok(strip(out).includes(DOT), 'shows the status dot in the right strip');
 });
 
-// --- pr element (second status line) ---------------------------------------
+// --- pr element (inline, one segment per session PR) -----------------------
 const TFS_PR = (n) => `http://tfs.cdbdx.biz:8080/DefaultCollection/Proj/_git/Repo/pullrequest/${n}`;
 
-test('17. pr second line — lists session PRs, clickable, status colors', () => {
+test('17. pr inline after branch — one segment per PR, clickable, status colors', () => {
   const sid = 'sess-abc';
-  const out = run(els('pr'), data({ sessionId: sid }), {
+  const out = run(els('dir', 'branch', 'pr'), data({ cwd: gitDir('main'), sessionId: sid }), {
     columns: 200,
     prStore: { sid, prs: [
       { number: 42, url: TFS_PR(42), status: 'active' },
       { number: 43, url: TFS_PR(43), status: 'completed' },
     ] },
   });
-  startsAndEndsCapped(out);                              // single strip (no first-row elements)
-  assert.ok(!out.includes('\n'), 'only the pr row when no first-row elements');
-  assert.strictEqual(count(out, SEP), 1, 'two PR segments -> one merge chevron');
-  assert.ok(!out.includes(DARK_BG), 'PR segments merge — no black band');
-  assert.ok(strip(out).includes('#42') && strip(out).includes('#43'), 'shows both PR numbers');
+  startsAndEndsCapped(out);
+  assert.ok(!out.includes('\n'), 'inline — single row');
+  assert.ok(!out.includes(DARK_BG), 'no wide black band around the PRs (branch->pr merges)');
+  assert.ok(strip(out).includes('main'), 'branch still shown before the PRs');
+  assert.ok(strip(out).includes('#42') && strip(out).includes('#43'), 'both PRs, after branch');
   assert.ok(out.includes('\x1b]8;;' + TFS_PR(42)) && out.includes('\x1b]8;;' + TFS_PR(43)), 'each PR is an OSC 8 link');
   assert.ok(strip(out).includes(PR_OPEN), 'active PR uses the git-pull-request glyph');
   assert.ok(strip(out).includes(PR_MERGE), 'completed PR uses the git-merge glyph');
   assert.ok(out.includes('48;2;120;70;160'), 'completed => purple background');
 });
 
-test('18. pr with a first-row element — two rows', () => {
+test('18. pr inline with other elements — still one row', () => {
   const sid = 'sess-2';
   const out = run(els('ctx', 'pr'), data({ ctx: 20, sessionId: sid }), {
     columns: 200,
     prStore: { sid, prs: [{ number: 7, url: TFS_PR(7), status: 'active' }] },
   });
-  const lines = out.split('\n');
-  assert.strictEqual(lines.length, 2, 'first row + pr row');
-  assert.ok(strip(lines[0]).includes('20%'), 'row 1 = ctx gauge');
-  assert.ok(strip(lines[1]).includes('#7'), 'row 2 = pr list');
+  assert.ok(!out.includes('\n'), 'single row');
+  assert.ok(strip(out).includes('20%') && strip(out).includes('#7'), 'ctx and the PR on the same strip');
 });
 
-test('19. pr enabled but no PRs — no second row', () => {
+test('19. pr enabled but no PRs — expands to nothing, no error', () => {
   const out = run(els('ctx', 'pr'), data({ ctx: 30, sessionId: 'sess-3' }), { columns: 200 });
-  assert.ok(!out.includes('\n'), 'no pr row when there are no PRs');
+  assert.ok(!out.includes('\n'));
   assert.ok(strip(out).includes('30%'));
+  assert.strictEqual(count(out, SEP), 0, 'pr expands to nothing -> ctx alone');
 });
 
-test('20. native current-branch PR (d.pr) is listed', () => {
+test('20. native current-branch PR (d.pr) is listed inline', () => {
   const out = run(els('pr'), data({
     sessionId: 'sess-4',
     pr: { number: 9, url: 'https://github.com/o/r/pull/9', review_state: 'approved' },
@@ -426,6 +425,28 @@ test('29. mixed incidents, one concerns my model — shown', () => {
 test('30. legacy cache (no incidents field) — shown (cannot tell, fail open)', () => {
   const out = run(els('status'), data({ ctx: 20, model: 'Opus 4.8' }), { statusCache: freshCache('minor', 'Partially Degraded') });
   startsAndEndsCapped(out);
+});
+
+test('31. same family, different version — hidden (Haiku 4.5 incident, on Haiku 4.6)', () => {
+  const out = run(els('status'), data({ ctx: 20, model: 'Haiku 4.6' }), {
+    statusCache: cacheInc('minor', [{ text: 'Elevated errors on Claude Haiku 4.5' }]),
+  });
+  assert.strictEqual(out, '', 'a different version of the same family is not concerned');
+});
+
+test('32. our family, no version pinned — shown (family-wide incident)', () => {
+  const out = run(els('status'), data({ ctx: 20, model: 'Opus 4.8' }), {
+    statusCache: cacheInc('minor', [{ text: 'Claude Opus degraded performance' }]),
+  });
+  startsAndEndsCapped(out);
+});
+
+test('33. version parsed from model id form — shown when it matches', () => {
+  const out = run(els('status'), data({ ctx: 20, model: { id: 'claude-haiku-4-5' } }), {
+    statusCache: cacheInc('minor', [{ text: 'Elevated errors on Claude Haiku 4.5' }]),
+  });
+  startsAndEndsCapped(out);
+  assert.ok(strip(out).includes(DOT));
 });
 
 // --- run -------------------------------------------------------------------
