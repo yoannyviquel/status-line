@@ -163,8 +163,7 @@ function render(raw) {
 // matters for placement — PRs always drop to the second line.
 function indicators(d, elements) {
   const main = mainStrip(d, elements.filter((e) => e.type !== 'pr'));
-  const prs = prSegs(d);
-  const prLine = prs.length ? powerline(prs) : '';
+  const prLine = prLineFor(d);
   if (main && prLine) return main + '\n' + prLine;
   return main || prLine;
 }
@@ -487,10 +486,36 @@ function prSeg(pr) {
   return { bg: meta.bg, fg: PR_FG, glyph: cp(meta.glyph), label, family: 'pr', link: pr.url };
 }
 
-// The session's PRs as inline segments (one per PR), placed wherever `pr` sits in
-// the element order (e.g. right after `branch`). Empty when there are none.
+// The session's PRs as inline segments (one per PR), in creation order (oldest
+// first, the current-branch PR last). Empty when there are none.
 function prSegs(d) {
   return readSessionPrs(d).map(prSeg);
+}
+
+// Overflow chip "+N": a grey, non-clickable segment standing in for N PRs that
+// don't fit. `family: 'pr'` makes sepStyle() blend its edges like a real PR.
+function overflowSeg(n) {
+  return { bg: [80, 80, 80], fg: PR_FG, glyph: cp(0x2026), label: '+' + n, family: 'pr' };
+}
+
+// The second-line PR strip, fitted to the terminal width. Keeps the most recent
+// PRs (the tail of the list — including the current-branch PR); when the full set
+// doesn't fit, drops the oldest and appends a "+N" chip. Truncation happens only
+// here at render time (never on disk), so a wider window re-shows hidden PRs.
+// COLUMNS unknown -> no limit (render all). Empty when there are no PRs.
+function prLineFor(d) {
+  const segs = prSegs(d);
+  if (!segs.length) return '';
+  const cols = parseInt(process.env.COLUMNS || '', 10);
+  if (!cols) return powerline(segs); // width unknown: render all
+  const budget = cols - EDGE_RESERVE;
+  if (visW(powerline(segs)) <= budget) return powerline(segs); // everything fits
+  // Keep as many of the most-recent PRs as fit, leaving room for the "+N" chip.
+  for (let keep = segs.length - 1; keep >= 1; keep--) {
+    const shown = [...segs.slice(segs.length - keep), overflowSeg(segs.length - keep)];
+    if (visW(powerline(shown)) <= budget) return powerline(shown);
+  }
+  return powerline([overflowSeg(segs.length)]); // not even one PR + chip fits
 }
 
 // --- ANSI / powerline rendering --------------------------------------------

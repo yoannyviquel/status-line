@@ -98,7 +98,8 @@ function upsert(sid, found) {
         const ev = raw ? JSON.parse(raw) : {};
         const sid = ev.session_id;
         if (process.argv.includes('--purge')) {
-          if (has(sid)) { try { fs.unlinkSync(path.join(PR_DIR, safeSid(sid) + '.json')); } catch { /* ignore */ } }
+          // TTL-only cleanup: keep the current session's file so a resume of this
+          // session still finds its captured PRs (the sweep removes >7d-old files).
           sweep();
           return done();
         }
