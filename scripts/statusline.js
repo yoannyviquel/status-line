@@ -157,15 +157,25 @@ function render(raw) {
 }
 
 // ---------------------------------------------------------------------------
-// Two-line layout: the main powerline strip on line 1, and (when the session
-// has any pull requests) the PR mini-segments on their own line 2, below the
-// "main" strip. The `pr` element's position in the ordered list no longer
-// matters for placement — PRs always drop to the second line.
+// Layout: everything on one line when it fits — the main strip with the PR
+// segments inline at the `pr` position (the classic look). When the session has
+// too many PRs to fit the terminal width, the main strip stays alone on line 1
+// and ALL the PRs drop below it, wrapped across as many lines as needed.
 function indicators(d, elements) {
+  const hasPr = elements.some((e) => e.type === 'pr');
+  const prs = hasPr ? prSegs(d) : [];
+  const cols = parseInt(process.env.COLUMNS || '', 10);
+  const budget = cols ? cols - EDGE_RESERVE : Infinity;
+
+  // Intrinsic single-line width with PRs inline (gap padding ignored): if it
+  // fits — or there are no PRs / no width info — keep the classic one-liner.
+  const inlineFits = !prs.length || visW(powerline(buildSegs(elements, d))) <= budget;
+  if (inlineFits) return mainStrip(d, elements);
+
+  // Too many PRs: main strip (PRs removed) on line 1, PRs wrapped below.
   const main = mainStrip(d, elements.filter((e) => e.type !== 'pr'));
-  const prLine = prLineFor(d);
-  if (main && prLine) return main + '\n' + prLine;
-  return main || prLine;
+  const wrapped = wrapPrLines(prs, budget);
+  return main ? main + '\n' + wrapped : wrapped;
 }
 
 // Build the unified powerline strip from the ordered elements list. Each
@@ -492,30 +502,22 @@ function prSegs(d) {
   return readSessionPrs(d).map(prSeg);
 }
 
-// Overflow chip "+N": a grey, non-clickable segment standing in for N PRs that
-// don't fit. `family: 'pr'` makes sepStyle() blend its edges like a real PR.
-function overflowSeg(n) {
-  return { bg: [80, 80, 80], fg: PR_FG, glyph: cp(0x2026), label: '+' + n, family: 'pr' };
-}
-
-// The second-line PR strip, fitted to the terminal width. Keeps the most recent
-// PRs (the tail of the list — including the current-branch PR); when the full set
-// doesn't fit, drops the oldest and appends a "+N" chip. Truncation happens only
-// here at render time (never on disk), so a wider window re-shows hidden PRs.
-// COLUMNS unknown -> no limit (render all). Empty when there are no PRs.
-function prLineFor(d) {
-  const segs = prSegs(d);
-  if (!segs.length) return '';
-  const cols = parseInt(process.env.COLUMNS || '', 10);
-  if (!cols) return powerline(segs); // width unknown: render all
-  const budget = cols - EDGE_RESERVE;
-  if (visW(powerline(segs)) <= budget) return powerline(segs); // everything fits
-  // Keep as many of the most-recent PRs as fit, leaving room for the "+N" chip.
-  for (let keep = segs.length - 1; keep >= 1; keep--) {
-    const shown = [...segs.slice(segs.length - keep), overflowSeg(segs.length - keep)];
-    if (visW(powerline(shown)) <= budget) return powerline(shown);
+// Wrap a list of PR segments across as many powerline lines as needed so each
+// line fits `budget` visible columns. Greedy fill, left to right, preserving
+// creation order; a single PR wider than the budget still gets its own line.
+function wrapPrLines(segs, budget) {
+  const lines = [];
+  let cur = [];
+  for (const s of segs) {
+    if (cur.length && visW(powerline([...cur, s])) > budget) {
+      lines.push(powerline(cur));
+      cur = [s];
+    } else {
+      cur.push(s);
+    }
   }
-  return powerline([overflowSeg(segs.length)]); // not even one PR + chip fits
+  if (cur.length) lines.push(powerline(cur));
+  return lines.join('\n');
 }
 
 // --- ANSI / powerline rendering --------------------------------------------
