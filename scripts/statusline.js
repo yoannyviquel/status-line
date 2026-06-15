@@ -157,9 +157,21 @@ function render(raw) {
 }
 
 // ---------------------------------------------------------------------------
+// Two-line layout: the main powerline strip on line 1, and (when the session
+// has any pull requests) the PR mini-segments on their own line 2, below the
+// "main" strip. The `pr` element's position in the ordered list no longer
+// matters for placement — PRs always drop to the second line.
+function indicators(d, elements) {
+  const main = mainStrip(d, elements.filter((e) => e.type !== 'pr'));
+  const prs = prSegs(d);
+  const prLine = prs.length ? powerline(prs) : '';
+  if (main && prLine) return main + '\n' + prLine;
+  return main || prLine;
+}
+
 // Build the unified powerline strip from the ordered elements list. Each
 // present element is one segment; absent data (no quota, no git) drops it.
-function indicators(d, elements) {
+function mainStrip(d, elements) {
   const gi = elements.findIndex((e) => e.type === 'gap');
   if (gi === -1) {
     const segs = buildSegs(elements, d);
