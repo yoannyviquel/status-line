@@ -511,19 +511,44 @@ function prSegs(d) {
 // Wrap a list of PR segments across as many powerline lines as needed so each
 // line fits `budget` visible columns. Greedy fill, left to right, preserving
 // creation order; a single PR wider than the budget still gets its own line.
+// Every line but the last is then justified to span the full width (see justify()),
+// so the wrapped block reaches the right edge instead of leaving a ragged gap.
 function wrapPrLines(segs, budget) {
-  const lines = [];
+  const rows = [];
   let cur = [];
   for (const s of segs) {
     if (cur.length && visW(powerline([...cur, s])) > budget) {
-      lines.push(powerline(cur));
+      rows.push(cur);
       cur = [s];
     } else {
       cur.push(s);
     }
   }
-  if (cur.length) lines.push(powerline(cur));
-  return lines.join('\n');
+  if (cur.length) rows.push(cur);
+  // Justify all but the last row to the full budget; leave the last (possibly
+  // short) row ragged so a near-empty final line is not stretched grotesquely.
+  return rows
+    .map((row, i) => powerline(i < rows.length - 1 ? justify(row, budget) : row))
+    .join('\n');
+}
+
+// Stretch a row of segments to exactly `budget` visible columns by padding the
+// segment bodies. The leftover columns (budget - current width) are spread evenly
+// across the segments as trailing spaces (powerline honors `padRight`), so the row
+// fills the line without breaking the chevron blend. Returns fresh segments (the
+// `padRight` is additive); a row already at/over budget is returned unchanged.
+function justify(segs, budget) {
+  const n = segs.length;
+  if (!n) return segs;
+  const slack = budget - visW(powerline(segs));
+  if (slack <= 0) return segs;
+  const base = Math.floor(slack / n);
+  const rem = slack % n;
+  return segs.map((s, i) => {
+    // base spaces each, plus the `rem` remainder spread one-per-segment evenly.
+    const extra = base + (Math.floor(((i + 1) * rem) / n) - Math.floor((i * rem) / n));
+    return extra ? { ...s, padRight: (s.padRight || 0) + extra } : s;
+  });
 }
 
 // --- ANSI / powerline rendering --------------------------------------------
@@ -563,7 +588,10 @@ function powerline(segs) {
   let out = DEFBG + fg(segs[0].bg) + GLYPH.leftCap;
   for (let i = 0; i < segs.length; i++) {
     const s = segs[i];
-    out += bg(s.bg) + fg(s.fg) + ' ' + renderText(s) + ' ';
+    // `padRight` (set by justify()): extra trailing spaces inside the segment bg,
+    // widening it so a wrapped PR row can fill the full line width.
+    const padR = s.padRight ? ' '.repeat(s.padRight) : '';
+    out += bg(s.bg) + fg(s.fg) + ' ' + renderText(s) + padR + ' ';
     if (i < segs.length - 1) {
       const next = segs[i + 1];
       const style = sepStyle(s, next);
