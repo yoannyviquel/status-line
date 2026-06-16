@@ -64,7 +64,13 @@ const GLYPH = {
   quota: cp(0xf0e4),     // nf-fa-tachometer    quota gauge icon
   model: cp(0xf2db),     // nf-fa-microchip     model segment icon
 };
-const ARROW = '→'; // "→" reset prefix
+// Reset-prefix arrow. MUST be a Private-Use-Area Nerd Font glyph, not the literal
+// "→" (U+2192): that arrow is East-Asian *Ambiguous* width — some terminals (e.g.
+// Windows Terminal) render it on 2 cells while visW() counts 1, which under-pads the
+// right-aligned strip and makes it drift when the quota reset prefixes appear. PUA
+// glyphs are unconditionally single-width, so measurement matches the render exactly.
+const ARROW = cp(0xf061); // nf-fa-arrow_right
+
 // Fallback labels (used when no reset timestamp is provided).
 const LABELS = { ctx: 'ctx', fiveHour: ARROW + '5h', sevenDay: ARROW + '7j' };
 // Gauge text color (on the completion-colored background).
