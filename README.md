@@ -23,16 +23,9 @@ Context window, 5h / 7d rate-limit quotas, model, directory, git branch and serv
 
 ## 🎨 What it looks like
 
-```text
-╭──────┬──────────┬────────────┬──────╮            ╭──────╮
-│  47% │ 30% →1am │ 82% →Jun12 │  tfs │   ……gap…… │  main│
-╰──────┴──────────┴────────────┴──────╯            ╰──────╯
- context   5h quota    7d quota     dir                branch
-  green→red gauges, tinted by usage      right-aligned after `gap`
-```
+<p align="center"><img src="assets/demo.png" alt="status-line rendered powerline strip: dir, branch, PR, model, service status, context and 5h/7d quota gauges" width="100%"></p>
 
-<!-- TODO: replace the block above with a real terminal screenshot showing the rendered powerline strip with a Nerd Font -->
-<!-- <p align="center"><img src="assets/demo.png" alt="status-line rendered" width="820"></p> -->
+Left to right: `dir` and `branch`, the session's `pr` (clickable), then right-aligned after `gap` — `model`, a `status` incident badge (`minor service outage`), and the `ctx` / `5h` / `7d` gauges with their dynamic reset times.
 
 Each gauge shows `NN%` and is tinted by its level (green = low, red = high). The `5h` / `7d` labels are the **dynamic reset time** reported by Claude Code (`→1am` same-day, `→Jun12` otherwise), falling back to `→5h` / `→7j`. `model` / `dir` / `branch` use solid backgrounds with white text. `status` only appears during a service incident.
 
