@@ -1,119 +1,108 @@
-# status-line
+<div align="center">
 
-Additive Claude Code status line rendered as a single **powerline strip** of
-configurable segments (rounded caps at both ends, filled chevrons between):
+<img src="assets/banner.svg" alt="status-line — powerline status bar for Claude Code" width="100%">
 
-- `ctx` — context-window usage gauge (segment background colored green→red by the %)
-- `5h` — 5h rate-limit quota gauge
-- `7d` — 7d rate-limit quota gauge
-- `model` — current model name (microchip glyph, Claude clay/orange background)
-- `dir` — current directory name (folder glyph)
-- `branch` — current git branch (branch glyph; omitted outside a repo)
-- `status` — Claude service status ([status.claude.com](https://status.claude.com/)): a colored heartbeat mark + label shown **only during an incident** (hidden when all systems are operational), clickable to open the status page
-- `gap` — splitter: everything after it is right-aligned to the window's right edge
+### A single **powerline strip** of live indicators for Claude Code.
 
-```
-  47%   30% →1am   82% →Jun12    tfs   main 
-```
+Context window, 5h / 7d rate-limit quotas, model, directory, git branch and service status — color-coded green→red, rounded caps, filled chevrons. **Additive** (it never replaces your existing status line) and **single-process** (just `node`).
 
-Each gauge segment shows `NN%` followed by its label and is tinted by its usage
-level (green = low, red = high). The `5h` / `7d` labels are the **dynamic reset
-time** reported by Claude Code (`→1am` same-day, `→Jun12` otherwise); they fall
-back to `→5h` / `→7j` when no timestamp is available. `ctx` shows just `NN%`
-(no label). `model` / `dir` / `branch` use solid backgrounds with white text. `status` is a
-colored heartbeat mark (`nf-fa-heartbeat`) + short label (`minor`/`major`/
-`critical`/`maintenance`) shown only when status.claude.com reports an incident
-(hidden when operational); it is fetched in the background into a small cache
-(`~/.claude/claude-status.cache.json`) so the render never blocks on the network,
-and the segment is an OSC 8 hyperlink to the status page.
+[![version](https://img.shields.io/badge/version-1.1.1-2ea043?style=for-the-badge)](./.claude-plugin/plugin.json)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-2ea043?style=for-the-badge&logo=anthropic&logoColor=white)](https://docs.claude.com/en/docs/claude-code)
+[![deps](https://img.shields.io/badge/dependencies-node_only-3c873a?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-6e7681?style=for-the-badge)](./LICENSE)
 
-**Separators** are decided per segment *family*: same-gamme gauges (`ctx`/`5h`/`7d`)
-flow into each other via a colored chevron, location segments (`model`/`dir`/`branch`)
-merge the same way, `model` flows its chevron into the gauge on its right, and two
-differing families are split by a black band. These rules live in the `FAMILY`
-trait table in `scripts/statusline.js`.
-
-**Requirements:** a **truecolor** (24-bit) terminal, `node` on PATH, and a
-**Nerd Font** for the powerline glyphs (caps, chevrons, folder/branch icons) —
-without one they show as tofu boxes. Grab one at <https://www.nerdfonts.com/>
-and set it as your terminal font.
-
-## Elements & order
-
-The displayed elements are an **ordered list** in
-`~/.claude/gradient-statusline.config.json`. Order = display order; presence =
-enabled. Whatever ends up first/last carries the rounded cap; absent data (no
-quota, no git repo) drops that segment automatically.
-
-```json
-{ "baseCommand": "", "elements": [ {"type":"ctx"}, {"type":"5h"}, {"type":"7d"}, {"type":"dir"}, {"type":"branch"} ] }
+```sh
+/plugin marketplace add yoannyviquel/marketplace
+/plugin install status-line
+/install-statusline
 ```
 
-## Why a command and not automatic?
+</div>
 
-Claude Code plugins **cannot** set the main `statusLine` directly (plugin
-`settings.json` only supports `agent` / `subagentStatusLine`). So this plugin
-ships a one-shot installer instead of patching your settings silently.
+---
 
-## Install
+## 🎨 What it looks like
 
-1. Add the plugin (via your marketplace), then enable it.
-2. Run once:
+```text
+╭──────┬──────────┬────────────┬──────╮            ╭──────╮
+│  47% │ 30% →1am │ 82% →Jun12 │  tfs │   ……gap…… │  main│
+╰──────┴──────────┴────────────┴──────╯            ╰──────╯
+ context   5h quota    7d quota     dir                branch
+  green→red gauges, tinted by usage      right-aligned after `gap`
+```
 
+<!-- TODO: replace the block above with a real terminal screenshot showing the rendered powerline strip with a Nerd Font -->
+<!-- <p align="center"><img src="assets/demo.png" alt="status-line rendered" width="820"></p> -->
+
+Each gauge shows `NN%` and is tinted by its level (green = low, red = high). The `5h` / `7d` labels are the **dynamic reset time** reported by Claude Code (`→1am` same-day, `→Jun12` otherwise), falling back to `→5h` / `→7j`. `model` / `dir` / `branch` use solid backgrounds with white text. `status` only appears during a service incident.
+
+## ✨ Segments
+
+The displayed segments are an **ordered list** in `~/.claude/gradient-statusline.config.json` — order = display order, presence = enabled. Absent data (no quota, no git repo) drops its segment automatically.
+
+| Segment | Shows | Style |
+|---|---|---|
+| `ctx` | Context-window usage `NN%` | gauge, green→red by % |
+| `5h` | 5h rate-limit quota + dynamic reset | gauge, green→red |
+| `7d` | 7d rate-limit quota + dynamic reset | gauge, green→red |
+| `model` | Current model name | microchip glyph, Claude clay/orange bg |
+| `dir` | Current directory name | folder glyph, solid bg |
+| `branch` | Current git branch (omitted outside a repo) | branch glyph, solid bg |
+| `status` | [status.claude.com](https://status.claude.com/) heartbeat + label — **only during an incident**, clickable | colored, hidden when operational |
+| `pr` | The session's pull requests, clickable, wrapping onto extra rows | inline list |
+| `gap` | Splitter — everything after it is right-aligned to the window edge | — |
+
+> **Separators** are decided per segment *family*: same-family gauges (`ctx`/`5h`/`7d`) flow into each other via a colored chevron, location segments (`model`/`dir`/`branch`) merge the same way, and two differing families are split by a black band. These rules live in the `FAMILY` trait table in `scripts/statusline.js`.
+
+## 📦 Requirements
+
+- A **truecolor** (24-bit) terminal.
+- `node` on `PATH`.
+- A **Nerd Font** for the powerline glyphs (caps, chevrons, folder/branch icons) — without one they show as tofu boxes. Grab one at <https://www.nerdfonts.com/> and set it as your terminal font.
+
+## 🚀 Install
+
+1. Add the plugin (via the marketplace) and enable it:
+   ```text
+   /plugin marketplace add yoannyviquel/marketplace
+   /plugin install status-line
    ```
+2. Run **once**:
+   ```text
    /install-statusline
    ```
-
-   It copies `statusline.js` to `~/.claude/gradient-statusline.js` and points
-   `statusLine` in your `~/.claude/settings.json` at it. Any existing config is
-   backed up to `settings.json.bak`, and a previously configured status line is
-   preserved as a prefix (additive). A fresh install enables all elements.
+   It copies `statusline.js` to `~/.claude/gradient-statusline.js` and points `statusLine` in your `~/.claude/settings.json` at it. Any existing config is backed up to `settings.json.bak`, and a previously configured status line is **preserved as a prefix** (additive). A fresh install enables all elements.
 3. Restart Claude Code (or open a new session).
 
-The installed script lives at `~/.claude/gradient-statusline.js` — independent of
-the plugin, so it keeps working if the plugin is later updated or removed.
+The installed script lives at `~/.claude/gradient-statusline.js` — independent of the plugin, so it keeps working if the plugin is later updated or removed.
 
-**Updates are automatic.** A `SessionStart` hook (`scripts/deploy.js`) re-copies
-the script into `~/.claude/gradient-statusline.js` on each session start whenever
-an install already exists and the source changed — so a plugin update reaches you
-without re-running `/install-statusline`. It never creates an install (the first
-`/install-statusline` is still what wires up settings + config) and never writes
-when nothing changed.
+> **Updates are automatic.** A `SessionStart` hook (`scripts/deploy.js`) re-copies the script on each session start whenever an install already exists and the source changed — so a plugin update reaches you without re-running `/install-statusline`. It never creates an install and never writes when nothing changed.
 
-## Configure
+## 🎛️ Configure
 
-Use the interactive command (no restart needed — the config is re-read on every
-refresh):
+Use the interactive command (no restart needed — the config is re-read on every refresh):
 
-```
+```text
 /statusline-mode
 ```
 
 …or pass elements directly (order = display order):
 
-```
+```text
 /statusline-mode ctx 5h dir branch
 ```
 
 Running with no argument prints the current configuration.
 
-## Tests
+<details>
+<summary><b>Why a command, and not automatic?</b></summary>
 
-End-to-end tests (zero dependency — just `node`) cover element on/off
-combinations, the per-family separators (colored chevron vs black band),
-rounded caps at both ends, right-align via `gap`, and graceful drops
-(missing data, non-git, legacy config):
+Claude Code plugins **cannot** set the main `statusLine` directly (plugin `settings.json` only supports `agent` / `subagentStatusLine`). So this plugin ships a one-shot installer instead of patching your settings silently.
 
-```
-node tests/e2e.js      # or: npm test
-```
+</details>
 
-## Uninstall
-
-Remove the `statusLine` block from `~/.claude/settings.json` (or restore
-`settings.json.bak`) and delete `~/.claude/gradient-statusline.js`.
-
-## Tweak the look
+<details>
+<summary><b>Tweak the look</b></summary>
 
 Constants at the top of `scripts/statusline.js`:
 
@@ -123,7 +112,31 @@ Constants at the top of `scripts/statusline.js`:
 - `FAMILY` — per-family separator style (`merge` / `band`) and `mergeNext`.
 - `grad`'s `m=170` — color brightness ceiling (lower = darker).
 
-> `~/.claude/gradient-statusline.js` is a copy: it is overwritten on reinstall and
-> re-synced from the source on every session start (see the `SessionStart` hook).
-> To persist changes, edit the source `scripts/statusline.js` — the next session
-> redeploys it automatically (no `/install-statusline` needed).
+> `~/.claude/gradient-statusline.js` is a copy: it is overwritten on reinstall and re-synced from the source on every session start. To persist changes, edit the source `scripts/statusline.js` — the next session redeploys it automatically.
+
+</details>
+
+<details>
+<summary><b>Tests & uninstall</b></summary>
+
+### Tests
+
+End-to-end tests (zero dependency — just `node`) cover element on/off combinations, the per-family separators, rounded caps, right-align via `gap`, and graceful drops (missing data, non-git, legacy config):
+
+```text
+node tests/e2e.js      # or: npm test
+```
+
+### Uninstall
+
+Remove the `statusLine` block from `~/.claude/settings.json` (or restore `settings.json.bak`) and delete `~/.claude/gradient-statusline.js`.
+
+</details>
+
+---
+
+<div align="center">
+
+MIT © Yoann Yviquel · Part of the [**yoannyviquel** marketplace](https://github.com/yoannyviquel/marketplace)
+
+</div>
