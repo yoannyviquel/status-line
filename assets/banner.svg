@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 180" width="880" height="180" role="img" aria-label="status-line — powerline status bar for Claude Code">
+  <defs>
+    <linearGradient id="gr" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2ea043"/>
+      <stop offset="0.55" stop-color="#d29922"/>
+      <stop offset="1" stop-color="#f85149"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#2ea043" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#2ea043" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="1" y="1" width="878" height="178" rx="18" fill="#0d1117" stroke="#2ea043" stroke-opacity="0.45"/>
+  <circle cx="96" cy="90" r="78" fill="url(#glow)"/>
+  <!-- powerline gauge motif -->
+  <g>
+    <rect x="52" y="64" width="88" height="14" rx="7" fill="#21262d"/>
+    <rect x="52" y="64" width="40" height="14" rx="7" fill="#2ea043"/>
+    <rect x="52" y="86" width="88" height="14" rx="7" fill="#21262d"/>
+    <rect x="52" y="86" width="62" height="14" rx="7" fill="#d29922"/>
+    <rect x="52" y="108" width="88" height="14" rx="7" fill="#21262d"/>
+    <rect x="52" y="108" width="80" height="14" rx="7" fill="#f85149"/>
+  </g>
+  <text x="190" y="82" font-family="ui-monospace,'SF Mono','JetBrains Mono','Fira Code',monospace" font-size="42" font-weight="700" fill="#f0f6fc">status-line</text>
+  <rect x="192" y="98" width="160" height="5" rx="2.5" fill="url(#gr)"/>
+  <text x="192" y="130" font-family="ui-sans-serif,'Segoe UI',Helvetica,Arial,sans-serif" font-size="18" fill="#8b949e">Powerline status bar · context %, 5h/7d quotas, model, dir, branch</text>
+  <text x="836" y="40" text-anchor="end" font-family="ui-monospace,monospace" font-size="13" fill="#6e7681">green → red</text>
+</svg>
