@@ -49,7 +49,7 @@ The displayed segments are an **ordered list** in `~/.claude/gradient-statusline
 | `dir` | Current directory name | folder glyph, solid bg |
 | `branch` | Current git branch (omitted outside a repo) | branch glyph, solid bg |
 | `status` | [status.claude.com](https://status.claude.com/) heartbeat + label — **only during an incident**, clickable | colored, hidden when operational |
-| `pr` | The session's pull requests, clickable, wrapping onto extra rows | inline list |
+| `pr` | The session's pull requests as `<COMPONENT> #<n>` (component = repo acronym), clickable, wrapping onto extra rows | inline list |
 | `gap` | Splitter — everything after it is right-aligned to the window edge | — |
 
 > **Separators** are decided per segment *family*: same-family gauges (`ctx`/`5h`/`7d`) flow into each other via a colored chevron, location segments (`model`/`dir`/`branch`) merge the same way, and two differing families are split by a black band. These rules live in the `FAMILY` trait table in `scripts/statusline.js`.

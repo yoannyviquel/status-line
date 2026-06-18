@@ -494,10 +494,39 @@ function readSessionPrs(d) {
   return out;
 }
 
-// One PR mini-segment: status glyph + "#<number>", clickable to the PR URL.
+// Repo (= component) name parsed from a PR URL, host-shaped like findPrs():
+// Azure DevOps "<...>/_git/<repo>/pullrequest/<n>", GitHub "<host>/<owner>/<repo>/pull/<n>",
+// GitLab "<...>/<repo>/-/merge_requests/<n>". '' if none recognized.
+function repoFromUrl(url) {
+  const u = String(url || '');
+  let m;
+  if ((m = /\/_git\/([^/]+)\/pullrequest\//i.exec(u))) return decodeURIComponent(m[1]);
+  if ((m = /github\.[^/]+\/[^/]+\/([^/]+)\/pull\//i.exec(u))) return m[1];
+  if ((m = /\/([^/]+)\/-\/merge_requests\//i.exec(u))) return m[1];
+  return '';
+}
+
+// Acronym of a component (repo) name: split on separators AND camelCase
+// boundaries, take each word's initial, uppercase, cap at 5 chars.
+// "offer-replication-rules" -> "ORR", "InternationalOfferReplication" -> "IOR".
+function acronym(name) {
+  if (!has(name)) return '';
+  const words = String(name)
+    .replace(/\.git$/i, '')
+    .split(/[-_.\s/]+/)
+    .flatMap((w) => w.split(/(?<=[a-z0-9])(?=[A-Z])/))
+    .filter(Boolean);
+  return words.map((w) => w[0]).join('').toUpperCase().slice(0, 5);
+}
+
+// One PR mini-segment: status glyph + "<COMPONENT-ACRONYM> #<number>", clickable
+// to the PR URL. The acronym names the component (repo) the PR touches; dropped
+// when the repo can't be parsed from the URL.
 function prSeg(pr) {
   const meta = PR_STATUS[prStatusKey(pr.status)] || PR_DEFAULT;
-  const label = has(pr.number) ? '#' + pr.number : 'PR';
+  const num = has(pr.number) ? '#' + pr.number : 'PR';
+  const acr = acronym(pr.repo || repoFromUrl(pr.url));
+  const label = acr ? acr + ' ' + num : num;
   // No mergeNext needed: sepStyle() already merges any edge touching a `pr` segment.
   return { bg: meta.bg, fg: PR_FG, glyph: cp(meta.glyph), label, family: 'pr', link: pr.url };
 }
