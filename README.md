@@ -4,7 +4,7 @@
 
 ### A single **powerline strip** of live indicators for Claude Code.
 
-Context window, 5h / 7d rate-limit quotas, model, directory, git branch and service status — color-coded green→red, rounded caps, filled chevrons. **Additive** (it never replaces your existing status line) and **single-process** (just `node`).
+Context window, 5h / 7d rate-limit quotas, model, directory, git branch, estimated-production ETA and service status — color-coded green→red, rounded caps, filled chevrons. **Additive** (it never replaces your existing status line) and **single-process** (just `node`).
 
 [![version](https://img.shields.io/badge/version-1.1.1-2ea043?style=for-the-badge)](./.claude-plugin/plugin.json)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-2ea043?style=for-the-badge&logo=anthropic&logoColor=white)](https://docs.claude.com/en/docs/claude-code)
@@ -41,6 +41,7 @@ The displayed segments are an **ordered list** in `~/.claude/gradient-statusline
 | `model` | Current model name | microchip glyph, Claude clay/orange bg |
 | `dir` | Current directory name | folder glyph, solid bg |
 | `branch` | Current git branch (omitted outside a repo) | branch glyph, solid bg |
+| `eta` | Clock time the current ticket's **estimated production** finishes (`now + estimate − produced`) — needs a cached estimate from `/statusline-estimate`; hidden without a Jira key on the branch or an estimate | checkered-flag glyph, green→red by progress |
 | `status` | [status.claude.com](https://status.claude.com/) heartbeat + label — **only during an incident**, clickable | colored, hidden when operational |
 | `pr` | The session's pull requests as `<COMPONENT> #<n>` (component = repo acronym), clickable, wrapping onto extra rows | inline list |
 | `gap` | Splitter — everything after it is right-aligned to the window edge | — |

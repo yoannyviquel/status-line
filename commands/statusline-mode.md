@@ -15,6 +15,10 @@ Elements:
 - `7d` — 7d rate-limit quota gauge
 - `dir` — current directory name
 - `branch` — current git branch (omitted outside a repo)
+- `eta` — clock time at which the current ticket's **estimated production**
+  finishes (`now + estimate − produced`). Needs a cached estimate for the branch's
+  Jira key — set one with `/statusline-estimate`. Hidden when the branch has no
+  Jira key or no cached estimate.
 - `status` — Claude service status (status.claude.com): a colored heartbeat mark
   + label shown **only during an incident** (hidden when operational), and **only
   when the incident concerns the model in use** (e.g. a Haiku incident is hidden
@@ -38,10 +42,10 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/set-mode.js" $ARGUMENTS
 
 1. **Pick the elements** with **AskUserQuestion** (`multiSelect: true`, header
    `Elements`, question "Which elements to show?"): options `ctx`, `5h`, `7d`,
-   `model`, `dir`, `branch`, `status`, `pr`.
+   `model`, `dir`, `branch`, `eta`, `status`, `pr`.
 
 2. **Build the element list** in this fixed display order — `ctx`, `5h`, `7d`,
-   `model`, `dir`, `branch`, `pr`, `status` — keeping only the selected ones.
+   `model`, `dir`, `branch`, `eta`, `pr`, `status` — keeping only the selected ones.
    (`pr` expands inline at its position; placing it after `branch` reads well.
    Finer ordering is possible by passing the elements directly as `$ARGUMENTS`.)
 

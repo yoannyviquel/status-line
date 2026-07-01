@@ -72,9 +72,12 @@ function data({ cwd, ctx, fiveHour, fiveReset, sevenDay, sevenReset, sessionId, 
 // cache file. Whenever the config includes the `status` element we also drop a
 // fresh lock file so the script's background refresh never spawns a real network
 // fetch — these tests stay fully offline.
-function run(config, d, { columns, statusCache, prStore } = {}) {
+function run(config, d, { columns, statusCache, prStore, estimates, memDataDir } = {}) {
   const home = homeWith(config);
   const claudeDir = path.join(home, '.claude');
+  if (estimates !== undefined) {
+    fs.writeFileSync(path.join(claudeDir, 'statusline-estimates.json'), JSON.stringify(estimates), 'utf8');
+  }
   if (statusCache !== undefined) {
     fs.writeFileSync(path.join(claudeDir, 'claude-status.cache.json'), JSON.stringify(statusCache), 'utf8');
   }
@@ -89,6 +92,8 @@ function run(config, d, { columns, statusCache, prStore } = {}) {
     fs.writeFileSync(path.join(claudeDir, 'claude-status.fetching'), String(Date.now()), 'utf8');
   }
   const env = { ...process.env, HOME: home, USERPROFILE: home };
+  if (memDataDir !== undefined) env.MEMORY_DATA_DIR = memDataDir; else delete env.MEMORY_DATA_DIR;
+  delete env.MEMORY_DB_PATH; // derive from MEMORY_DATA_DIR
   if (columns) env.COLUMNS = String(columns); else delete env.COLUMNS;
   const res = cpmod.spawnSync(process.execPath, [SCRIPT], {
     input: JSON.stringify(d),
@@ -447,6 +452,85 @@ test('33. version parsed from model id form — shown when it matches', () => {
   });
   startsAndEndsCapped(out);
   assert.ok(strip(out).includes(DOT));
+});
+
+// --- eta element (estimated-production finish time) -------------------------
+const FLAG = String.fromCodePoint(0xf11e); // nf-fa-flag_checkered — the eta glyph
+
+// A MEMORY_DATA_DIR with a memories.db holding one session row (branch + active_ms),
+// and optionally a live-session state file (state/<sid>.json with activeMs).
+function memData({ branch, dbMs, sid, liveMs }) {
+  const dir = tmpdir('sb-mem-');
+  const { DatabaseSync } = require('node:sqlite');
+  const db = new DatabaseSync(path.join(dir, 'memories.db'));
+  db.exec('CREATE TABLE memories (mem_id TEXT, type TEXT, branch TEXT, active_ms INTEGER);');
+  if (dbMs !== undefined) {
+    db.prepare('INSERT INTO memories (mem_id, type, branch, active_ms) VALUES (?, ?, ?, ?);')
+      .run('s1:session', 'session', branch, dbMs);
+  }
+  db.close();
+  if (sid && liveMs !== undefined) {
+    fs.mkdirSync(path.join(dir, 'state'), { recursive: true });
+    const safe = String(sid).replace(/[^A-Za-z0-9_.-]/g, '_');
+    fs.writeFileSync(path.join(dir, 'state', safe + '.json'), JSON.stringify({ activeMs: liveMs }), 'utf8');
+  }
+  return dir;
+}
+
+const HOUR = 3600 * 1000;
+
+test('34. eta — no cached estimate for the ticket, segment hidden', () => {
+  const g = gitDir('feature/ABC-12-x');
+  const out = run(els('ctx', 'eta'), data({ cwd: g, ctx: 20 }), {
+    memDataDir: memData({ branch: 'feature/ABC-12-x', dbMs: HOUR }),
+    // no `estimates`
+  });
+  assert.strictEqual(count(out, SEP), 0, 'eta dropped -> ctx alone');
+  assert.ok(!strip(out).includes(FLAG), 'no eta glyph without an estimate');
+});
+
+test('35. eta — branch has no Jira key, segment hidden', () => {
+  const g = gitDir('feature/no-ticket');
+  const out = run(els('ctx', 'eta'), data({ cwd: g, ctx: 20 }), {
+    estimates: { 'ABC-12': { hours: 3 } },
+    memDataDir: memData({ branch: 'feature/no-ticket', dbMs: HOUR }),
+  });
+  assert.ok(!strip(out).includes(FLAG), 'no eta glyph when the branch carries no ticket key');
+});
+
+test('36. eta — under budget shows a clock time', () => {
+  const g = gitDir('feature/ABC-12-x');
+  const sid = 'eta-sess-1';
+  // estimate 3h; produced = 1h (DB) + 0.5h (live) = 1.5h remaining -> future clock time.
+  const out = run(els('eta'), data({ cwd: g, ctx: 20, sessionId: sid }), {
+    estimates: { 'ABC-12': { hours: 3 } },
+    memDataDir: memData({ branch: 'feature/ABC-12-x', dbMs: HOUR, sid, liveMs: HOUR / 2 }),
+  });
+  startsAndEndsCapped(out);
+  assert.ok(strip(out).includes(FLAG), 'shows the eta glyph');
+  assert.ok(/\d+h\d\d/.test(strip(out)), `shows a HHhMM clock time, got ${JSON.stringify(strip(out))}`);
+});
+
+test('37. eta — over budget shows an overrun (+…)', () => {
+  const g = gitDir('feature/ABC-12-x');
+  // estimate 1h; produced = 2h (DB) -> overrun of ~1h.
+  const out = run(els('eta'), data({ cwd: g, ctx: 20 }), {
+    estimates: { 'ABC-12': { hours: 1 } },
+    memDataDir: memData({ branch: 'feature/ABC-12-x', dbMs: 2 * HOUR }),
+  });
+  startsAndEndsCapped(out);
+  assert.ok(strip(out).includes(FLAG), 'shows the eta glyph');
+  assert.ok(strip(out).includes('+1h'), `overrun marker, got ${JSON.stringify(strip(out))}`);
+});
+
+test('38. eta — points * ratio when no explicit hours', () => {
+  const g = gitDir('feature/ABC-12-x');
+  // 1 point * ratio 1 = 1h estimate; produced 2h -> +1h overrun (proves ratio path).
+  const out = run(els('eta'), data({ cwd: g, ctx: 20 }), {
+    estimates: { hoursPerPoint: 1, 'ABC-12': { points: 1 } },
+    memDataDir: memData({ branch: 'feature/ABC-12-x', dbMs: 2 * HOUR }),
+  });
+  assert.ok(strip(out).includes('+1h'), `ratio-derived estimate, got ${JSON.stringify(strip(out))}`);
 });
 
 // --- run -------------------------------------------------------------------
